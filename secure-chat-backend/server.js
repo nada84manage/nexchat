@@ -81,15 +81,17 @@ app.get('/api/users', async (req, res) => {
     }
 });
 
-// メッセージ取得API
+// メッセージ取得API（自分宛て・他人宛て両対応）
 app.get('/api/messages', async (req, res) => {
     try {
         const { user1, user2 } = req.query;
         let query = supabase.from('messages').select('*');
 
         if (user1 === user2) {
+            // 自分から自分宛て（Keepメモ）の場合
             query = query.eq('sender', user1).eq('recipient', user1);
         } else {
+            // 他の人とのやり取りの場合
             query = query.or(`and(sender.eq.${user1},recipient.eq.${user2}),and(sender.eq.${user2},recipient.eq.${user1})`);
         }
 
