@@ -1,117 +1,146 @@
 const express = require('express');
 const bcrypt = require('bcrypt');
-const fs = require('fs');
+const { createClient } = require('@supabase/supabase-js');
 const path = require('path');
+
 const app = express();
-
 app.use(express.json());
-app.use(express.static(path.join(__dirname)));
+app.use(express.urlencoded({ extended: true }));
 
-app.get('/', (req, res) => {
-    res.sendFile(path.join(__dirname, 'index.html'));
-});
+// 静的ファイルの提供（publicフォルダなどにあるHTML/CSS/JS用）
+app.use(express.static(path.join(__dirname, 'public')));
 
-// Vercelなどのサーバーレス環境では /tmp ディレクトリを使用する
-const isVercel = process.env.VERCEL || process.env.NODE_ENV === 'production';
-const DATA_DIR = isVercel ? '/tmp' : __dirname;
+// Supabaseクライアントの初期化（環境変数から自動読み込み）
+const supabaseUrl = process.env.SUPABASE_URL;
+const supabaseKey = process.env.SUPABASE_KEY;
+const supabase = createClient(supabaseUrl, supabaseKey);
 
-const DB_FILE = path.join(DATA_DIR, 'users.json');
-const MSG_FILE = path.join(DATA_DIR, 'messages.json');
-
-// 初期ファイルが存在しない場合に備えて空ファイルを作成しておく関数
-function ensureFileExists(filePath, defaultData) {
-    try {
-        if (!fs.existsSync(filePath)) {
-            fs.writeFileSync(filePath, JSON.stringify(defaultData, null, 2), 'utf8');
-        }
-    } catch (error) {
-        console.error('ファイル初期化エラー:', error);
-    }
-}
-
-ensureFileExists(DB_FILE, []);
-ensureFileExists(MSG_FILE, { global: [] });
-
-function loadData(filePath, defaultData) {
-    try {
-        if (fs.existsSync(filePath)) {
-            const data = fs.readFileSync(filePath, 'utf8');
-            return JSON.parse(data);
-        }
-    } catch (error) {
-        console.error('読み込みエラー:', error);
-    }
-    return defaultData;
-}
-
-function saveData(filePath, data) {
-    try {
-        fs.writeFileSync(filePath, JSON.stringify(data, null, 2), 'utf8');
-    } catch (error) {
-        console.error('保存エラー:', error);
-    }
-}
-
+// ==========================================
+// 1. ユーザー登録（サインアップ）API
+// ==========================================
 app.post('/api/signup', async (req, res) => {
     try {
         const { name, email, password } = req.body;
-        const users = loadData(DB_FILE, []);
-
-        if (users.find(u => u.email === email)) {
-            return res.status(400).json({ error: 'このメールアドレスは既に登録されています。' });
+        if (!name || !email || !password) {
+            return res.status(400).json({ success: false, message: 'すべての項目を入力してください。' });
         }
 
-        const hashedPassword = await bcrypt.hash(password, 10);
-        users.push({ name, email, password: hashedPassword });
-        saveData(DB_FILE, users);
+        // 既存ユーザーのメールアドレス重複チェック
+        const { data: existingUsers, error: searchError } = await supabase
+            .from('users')
+            .select('*')
+            .eq('email', email);
 
-        res.status(201).json({ message: 'アカウント作成成功' });
-    } catch (error) {
-        res.status(500).json({ error: 'サーバーエラー' });
+        if (searchError) throw searchError;
+        if (existingUsers && existingUsers.length > 0) {
+            return res.status(400).json({ success: false, message: 'このメールアドレスは既に登録されています。' });
+        }
+
+        // パスワードのハッシュ化（セキュリティ強化）
+        const hashedPassword = await bcrypt.hash(password, 10);
+
+        // Supabaseの users テーブルに保存
+        const { data, error } = await supabase
+            .from('users')
+            .insert([{ name, email, password: hashedPassword }])
+            .select();
+
+        if (error) throw error;
+
+        res.json({ success: true, message: '登録が完了しました！', user: { name: data[0].name, email: data[0].email } });
+    } catch (err) {
+        console.error('Signup error:', err);
+        res.status(500.json({ success: false, message: 'サーバーエラーが発生しました。' }));
     }
 });
 
+// ==========================================
+// 2. ログインAPI
+// ==========================================
 app.post('/api/login', async (req, res) => {
     try {
         const { email, password } = req.body;
-        const users = loadData(DB_FILE, []);
-
-        const user = users.find(u => u.email === email);
-        if (!user || !(await bcrypt.compare(password, user.password))) {
-            return res.status(400).json({ error: 'メールまたはパスワードが間違っています。' });
+        if (!email || !password) {
+            return res.status(400).json({ success: false, message: 'メールアドレスとパスワードを入力してください。' });
         }
 
-        res.status(200).json({ message: 'ログイン成功', name: user.name });
-    } catch (error) {
-        res.status(500).json({ error: 'サーバーエラー' });
+        // ユーザーを検索
+        const { data: users, error } = await supabase
+            .from('users')
+            .select('*')
+            .eq('email', email);
+
+        if (error) throw error;
+        if (!users || users.length === 0) {
+            return res.status(400).json({ success: false, message: 'メールアドレスまたはパスワードが間違っています。' });
+        }
+
+        const user = users[0];
+
+        // ハッシュ化されたパスワードの照合
+        const match = await bcrypt.compare(password, user.password);
+        if (!match) {
+            return res.status(400).json({ success: false, message: 'メールアドレスまたはパスワードが間違っています。' });
+        }
+
+        res.json({ success: true, message: 'ログイン成功！', user: { name: user.name, email: user.email } });
+    } catch (err) {
+        console.error('Login error:', err);
+        res.status(500).json({ success: false, message: 'サーバーエラーが発生しました。' });
     }
 });
 
-app.get('/api/messages', (req, res) => {
-    const data = loadData(MSG_FILE, { global: [] });
-    res.status(200).json(data);
-});
-
-app.post('/api/messages', (req, res) => {
+// ==========================================
+// 3. メッセージ取得API
+// ==========================================
+app.get('/api/messages', async (req, res) => {
     try {
-        const { sender, text, time } = req.body;
-        const data = loadData(MSG_FILE, { global: [] });
+        const { data, error } = await supabase
+            .from('messages')
+            .select('*')
+            .order('id', { ascending: true });
 
-        if (!data.global) data.global = [];
-        
-        const newMessage = { sender, text, time, read: true };
-        data.global.push(newMessage);
-        saveData(MSG_FILE, data);
-
-        res.status(201).json(newMessage);
-    } catch (error) {
-        res.status(500).json({ error: '保存失敗' });
+        if (error) throw error;
+        res.json(data || []);
+    } catch (err) {
+        console.error('Get messages error:', err);
+        res.status(500).json({ success: false, message: 'メッセージの取得に失敗しました。' });
     }
 });
 
-const PORT = process.env.PORT || 3000;
-if (!isVercel && require.main === module) {
-    app.listen(PORT, () => console.log(`起動: ${PORT}`));
-}
+// ==========================================
+// 4. メッセージ送信API
+// ==========================================
+app.post('/api/messages', async (req, res) => {
+    try {
+        const { sender, text, time, read } = req.body;
+        if (!sender || !text) {
+            return res.status(400).json({ success: false, message: '送信者と本文が必要です。' });
+        }
 
-module.exports = app;
+        const newMessage = {
+            sender,
+            text,
+            time: time || new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+            read: read || '既読'
+        };
+
+        const { data, error } = await supabase
+            .from('messages')
+            .insert([newMessage])
+            .select();
+
+        if (error) throw error;
+
+        res.json({ success: true, message: data[0] });
+    } catch (err) {
+        console.error('Post message error:', err);
+        res.status(500).json({ success: false, message: 'メッセージの送信に失敗しました。' });
+    }
+});
+
+// サーバー起動
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => {
+    console.log(`Server is running on port ${PORT}`);
+});
