@@ -6,6 +6,14 @@ const app = express();
 
 app.use(express.json());
 
+// フロントエンド（HTMLファイル）を公開する設定
+app.use(express.static(path.join(__dirname)));
+
+// 根元にアクセスされたら index.html を返す
+app.get('/', (req, res) => {
+    res.sendFile(path.join(__dirname, 'index.html'));
+});
+
 // データを保存するファイルのパス
 const DB_FILE = path.join(__dirname, 'users.json');
 
@@ -42,22 +50,19 @@ app.post('/api/signup', async (req, res) => {
             return res.status(400).json({ error: 'このメールアドレスは既に登録されています。' });
         }
 
-        // パスワードのハッシュ化
         const saltRounds = 10;
         const hashedPassword = await bcrypt.hash(password, saltRounds);
 
         const newUser = {
             name,
             email,
-            password: hashedPassword // ハッシュ化されたパスワードのみ保存
+            password: hashedPassword
         };
         
         users.push(newUser);
-        saveUsers(users); // ファイルに永続保存
+        saveUsers(users);
 
-        console.log("アカウントが永続ファイルに保存されました:", email);
         res.status(201).json({ message: 'アカウントが安全に作成されました。' });
-
     } catch (error) {
         res.status(500).json({ error: 'サーバーエラーが発生しました。' });
     }
@@ -74,7 +79,6 @@ app.post('/api/login', async (req, res) => {
             return res.status(400).json({ error: 'メールアドレスまたはパスワードが間違っています。' });
         }
 
-        // ハッシュ値の比較検証
         const isMatch = await bcrypt.compare(password, user.password);
         if (!isMatch) {
             return res.status(400).json({ error: 'メールアドレスまたはパスワードが間違っています。' });
@@ -86,15 +90,11 @@ app.post('/api/login', async (req, res) => {
     }
 });
 
-// ローカル開発用およびVercel用のサーバー起動・エクスポート設定
 const PORT = process.env.PORT || 3000;
-
-// ローカル環境で直接 node server.js が実行されたときのみ listen する
 if (process.env.NODE_ENV !== 'production' && require.main === module) {
     app.listen(PORT, () => {
-        console.log(`セキュアサーバー（永続化対応）がポート${PORT}で起動しました`);
+        console.log(`セキュアサーバーがポート${PORT}で起動しました`);
     });
 }
 
-// Vercelなどのクラウド環境用にアプリをエクスポート
 module.exports = app;
