@@ -131,6 +131,13 @@
                             <button type="button" class="toggle-password" onclick="togglePasswordVisibility('signupPassword', this)">表示</button>
                         </div>
                     </div>
+                    <div class="form-group">
+                        <label>パスワード（確認用）</label>
+                        <div class="input-wrapper">
+                            <input type="password" id="signupPasswordConfirm" required minlength="6" placeholder="••••••••">
+                            <button type="button" class="toggle-password" onclick="togglePasswordVisibility('signupPasswordConfirm', this)">表示</button>
+                        </div>
+                    </div>
                     <button type="submit" class="btn">アカウント作成</button>
                 </form>
             </div>
@@ -210,7 +217,15 @@
             const name = document.getElementById('signupName').value.trim();
             const email = document.getElementById('signupEmail').value.trim();
             const password = document.getElementById('signupPassword').value;
+            const passwordConfirm = document.getElementById('signupPasswordConfirm').value; // 確認用値
             const statusEl = document.getElementById('statusMsg');
+
+            // ▼ パスワードの一致チェック
+            if (password !== passwordConfirm) {
+                statusEl.className = 'msg-box error';
+                statusEl.innerText = 'パスワードが一致しません。';
+                return;
+            }
 
             try {
                 const response = await fetch(`${API_URL}/signup`, {
@@ -259,7 +274,7 @@
             document.getElementById('chatScreen').style.display = 'block';
             document.getElementById('currentUserName').innerText = userName;
             loadMessages();
-            setInterval(loadMessages, 3000); // 3秒ごとに同期
+            setInterval(loadMessages, 3000);
         }
 
         async function loadMessages() {
@@ -331,13 +346,32 @@
             input.value = '';
             document.getElementById('sendBtn').disabled = true;
 
+            const chatMessages = document.getElementById('chatMessages');
+            const row = document.createElement('div');
+            row.className = 'message-row outgoing';
+
+            const bubble = document.createElement('div');
+            bubble.className = 'message-bubble';
+            bubble.innerText = text;
+
+            const meta = document.createElement('div');
+            meta.className = 'message-meta';
+            meta.innerHTML = `
+                <div class="read-status">既読</div>
+                <div class="message-time">${time}</div>
+            `;
+
+            row.appendChild(bubble);
+            row.appendChild(meta);
+            chatMessages.appendChild(row);
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+
             try {
                 await fetch(`${API_URL}/messages`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ sender: currentUser.name, text, time })
                 });
-                loadMessages();
             } catch (e) {
                 console.error('送信失敗', e);
             }
