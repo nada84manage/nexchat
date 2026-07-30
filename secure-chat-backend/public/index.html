@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>NexChat - Final Edition</title>
+    <title>NexChat - Perfect Edition</title>
     <style>
         :root {
             --primary: #6366f1;
@@ -72,7 +72,6 @@
 
         .chat-messages { flex: 1; padding: 2rem; overflow-y: auto; display: flex; flex-direction: column; gap: 1rem; position: relative; }
 
-        /* 左右のメッセージ配置（outgoing: 右, incoming: 左） */
         .message-row { display: flex; align-items: flex-end; gap: 8px; max-width: 75%; position: relative; }
         .message-row.incoming { align-self: flex-start; }
         .message-row.outgoing { align-self: flex-end; flex-direction: row-reverse; }
@@ -315,6 +314,7 @@
                 const roomList = document.getElementById('roomList');
                 roomList.innerHTML = '';
 
+                // Keepメモを常に最上部に配置
                 const keepItem = document.createElement('div');
                 keepItem.className = 'room-item';
                 if (currentRecipient === currentUser.name) keepItem.classList.add('active');
@@ -328,7 +328,10 @@
                 keepItem.onclick = () => selectUser(currentUser.name);
                 roomList.appendChild(keepItem);
 
+                // 他のユーザーを表示（自分自身は除外）
                 users.forEach(user => {
+                    if (user.name === currentUser.name) return;
+
                     const item = document.createElement('div');
                     item.className = 'room-item';
                     if (currentRecipient === user.name) item.classList.add('active');
@@ -352,10 +355,14 @@
             currentRecipient = recipientName;
             replyingToText = null;
             
-            // ユーザー一覧の選択状態を更新
-            document.querySelectorAll('.room-item').forEach(item => {
+            // サイドバーの選択状態（active）を正しく付け替え
+            const roomListItems = document.querySelectorAll('.room-item');
+            roomListItems.forEach(item => {
                 item.classList.remove('active');
-                if (item.getAttribute('data-name') === recipientName || item.innerText.includes(recipientName)) {
+                const isKeep = (recipientName === currentUser.name && item.querySelector('.avatar').classList.contains('keep'));
+                const isUser = item.innerText.includes(recipientName) && !item.querySelector('.avatar').classList.contains('keep');
+                
+                if (isKeep || isUser) {
                     item.classList.add('active');
                 }
             });
@@ -383,9 +390,6 @@
                     <button id="sendBtn" class="btn" onclick="sendMessage()" style="width: 100px;" disabled>送信</button>
                 </div>
             `;
-
-            // 再度サイドバーのactiveクラスを確実に正しく付与し直す
-            await loadUsers();
 
             if (pollInterval) clearInterval(pollInterval);
             loadData();
@@ -450,7 +454,6 @@
                     latestAnnouncement = msg.text;
                 }
 
-                // 自分が送信したメッセージなら右側(outgoing)、相手なら左側(incoming)に振り分け
                 const isMyMessage = msg.sender === currentUser.name;
                 const row = document.createElement('div');
                 row.className = `message-row ${isMyMessage ? 'outgoing' : 'incoming'}`;
