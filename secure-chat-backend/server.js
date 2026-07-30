@@ -6,14 +6,12 @@ const app = express();
 
 app.use(express.json());
 
-// フロントエンド（HTMLファイル）を公開する設定
 app.use(express.static(path.join(__dirname)));
 
 app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'index.html'));
 });
 
-// データ保存用ファイルパス
 const DB_FILE = path.join(__dirname, 'users.json');
 const MSG_FILE = path.join(__dirname, 'messages.json');
 
@@ -25,7 +23,7 @@ function loadData(filePath) {
     } catch (error) {
         console.error('ファイル読み込みエラー:', error);
     }
-    return filePath === DB_FILE ? [] : {};
+    return filePath === DB_FILE ? [] : { global: [] };
 }
 
 function saveData(filePath, data) {
@@ -36,7 +34,6 @@ function saveData(filePath, data) {
     }
 }
 
-// ユーザー登録
 app.post('/api/signup', async (req, res) => {
     try {
         const { name, email, password } = req.body;
@@ -56,7 +53,6 @@ app.post('/api/signup', async (req, res) => {
     }
 });
 
-// ログイン
 app.post('/api/login', async (req, res) => {
     try {
         const { email, password } = req.body;
@@ -73,23 +69,21 @@ app.post('/api/login', async (req, res) => {
     }
 });
 
-// メッセージ取得
 app.get('/api/messages', (req, res) => {
-    const messages = loadData(MSG_FILE);
-    res.status(200).json(messages);
+    const data = loadData(MSG_FILE);
+    res.status(200).json(data);
 });
 
-// メッセージ送信
 app.post('/api/messages', (req, res) => {
     try {
         const { sender, text, time } = req.body;
-        const messages = loadData(MSG_FILE);
+        const data = loadData(MSG_FILE);
 
-        if (!messages.global) messages.global = [];
+        if (!data.global) data.global = [];
         
         const newMessage = { sender, text, time, read: false };
-        messages.global.push(newMessage);
-        saveData(MSG_FILE, messages);
+        data.global.push(newMessage);
+        saveData(MSG_FILE, data);
 
         res.status(201).json(newMessage);
     } catch (error) {
