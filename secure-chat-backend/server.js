@@ -7,6 +7,7 @@ const app = express();
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+// 静的ファイルの提供
 app.use(express.static(path.join(__dirname, 'public')));
 
 const supabaseUrl = process.env.SUPABASE_URL;
@@ -47,11 +48,11 @@ app.post('/api/signup', async (req, res) => {
 });
 
 // ログインAPI
-app.post('/api/login', async (req, res) => {
+app.post('/api/login', async (req, strRes) => {
     try {
         const { email, password } = req.body;
         if (!email || !password) {
-            return res.status(400).json({ error: 'メールアドレスとパスワードを入力してください。' });
+            return strRes.status(400).json({ error: 'メールアドレスとパスワードを入力してください。' });
         }
 
         const { data: users, error } = await supabase
@@ -61,19 +62,19 @@ app.post('/api/login', async (req, res) => {
 
         if (error) throw error;
         if (!users || users.length === 0) {
-            return res.status(400).json({ error: 'メールアドレスまたはパスワードが間違っています。' });
+            return strRes.status(400).json({ error: 'メールアドレスまたはパスワードが間違っています。' });
         }
 
         const user = users[0];
         const match = await bcrypt.compare(password, user.password);
         if (!match) {
-            return res.status(400).json({ error: 'メールアドレスまたはパスワードが間違っています。' });
+            return strRes.status(400).json({ error: 'メールアドレスまたはパスワードが間違っています。' });
         }
 
-        res.json({ success: true, name: user.name });
+        strRes.json({ success: true, name: user.name });
     } catch (err) {
         console.error('Login error:', err);
-        res.status(500).json({ error: 'サーバーエラーが発生しました。' });
+        strRes.status(500).json({ error: 'サーバーエラーが発生しました。' });
     }
 });
 
