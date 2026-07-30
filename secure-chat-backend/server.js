@@ -168,9 +168,7 @@ app.post('/api/read', async (req, res) => {
     }
 });
 
-// --- タイピング中機能のAPI ---
-
-// タイピング状態の送信
+// タイピング中状態の送信
 app.post('/api/typing', (req, res) => {
     const { sender, recipient } = req.body;
     if (sender && recipient) {
@@ -180,16 +178,15 @@ app.post('/api/typing', (req, res) => {
     res.json({ success: true });
 });
 
-// タイピング状態の確認
+// タイピング中状態の確認
 app.get('/api/typing', (req, res) => {
-    const { sender, recipient } = req.query; // 相手が自分に向けて入力しているか確認するため [recipient -> sender]
+    const { sender, recipient } = req.query;
     if (!sender || !recipient) return res.json({ isTyping: false });
 
     const key = `${recipient}_${sender}`;
     const lastTyped = typingStatus[key] || 0;
     const now = Date.now();
 
-    // 4秒以内にタイピング信号があれば「入力中」とみなす
     const isTyping = (now - lastTyped) < 4000;
     res.json({ isTyping });
 });
