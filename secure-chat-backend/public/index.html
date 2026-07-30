@@ -149,7 +149,6 @@
             object-fit: cover !important;
             border-radius: 12px;
         }
-        /* html5-qrcodeの余分な枠やテキストを隠す */
         #reader__dashboard_section_csr span, #reader__dashboard_section_swaplink {
             display: none !important;
         }
@@ -265,7 +264,7 @@
             <h3>マイQRコード</h3>
             <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 15px;">このQRコードを相手に読み込んでもらいます</p>
             <div style="display: flex; justify-content: center; margin-bottom: 15px;">
-                <div id="qrcodeContainer" style="background: white; padding: 15px; border-radius: 8px; display: inline-block;"></div>
+                <div id="qrcodeContainer" style="background: white; padding: 15px; border-radius: 8px; display: inline-block; min-width: 180px; min-height: 180px;"></div>
             </div>
             <button class="btn" style="margin-bottom: 10px; background: var(--primary);" onclick="generateMyQr()">QRコードを更新</button>
             <button class="btn" style="background: var(--border);" onclick="closeModal('myQrModal')">閉じる</button>
@@ -543,12 +542,13 @@
             messages.forEach(msg => {
                 if (hiddenMessages.includes(msg.id)) return;
                 
+                // アナウンスの厳密な判定（is_announcementフラグを持つもののみ対象）
                 if (msg.is_announcement) {
                     const cleanAnnouncementText = msg.text.replace('[アナウンス]', '').trim();
                     if (cleanAnnouncementText !== '') {
                         latestAnnouncement = cleanAnnouncementText;
                     } else {
-                        latestAnnouncement = null;
+                        latestAnnouncement = null; // 解除時はリセット
                     }
                 }
 
@@ -873,7 +873,8 @@
 
         function openMyQrModal() {
             document.getElementById('myQrModal').style.display = 'flex';
-            generateMyQr();
+            // モーダル表示後に確実に描画されるよう少しだけ遅延させる
+            setTimeout(generateMyQr, 50);
         }
 
         function generateMyQr() {
@@ -881,24 +882,25 @@
             container.innerHTML = '';
             const qrData = `${currentUser.name}_${Date.now()}`;
             try {
-                new QRCode(container, {
-                    text: qrData,
-                    width: 180,
-                    height: 180,
-                    colorDark: "#000000",
-                    colorLight: "#ffffff",
-                    correctLevel: QRCode.CorrectLevel.H
-                });
+                if (typeof QRCode !== 'undefined') {
+                    new QRCode(container, {
+                        text: qrData,
+                        width: 180,
+                        height: 180,
+                        colorDark: "#000000",
+                        colorLight: "#ffffff",
+                        correctLevel: QRCode.CorrectLevel.H
+                    });
+                } else {
+                    container.innerHTML = '<span style="color: black; font-size: 0.85rem;">QRライブラリ読込中...</span>';
+                }
             } catch (e) {
                 console.error("QRコード生成エラー:", e);
             }
         }
 
-        // 押した瞬間にカメラが全画面で開くように修正
         function openScannerModal() {
             document.getElementById('scannerModal').style.display = 'flex';
-            
-            // 少し遅延を入れて要素（#reader）のレンダリング完了を確実にしてからカメラ起動
             setTimeout(() => {
                 if (!html5QrCode) {
                     html5QrCode = new Html5Qrcode("reader");
