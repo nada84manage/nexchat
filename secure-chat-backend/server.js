@@ -139,10 +139,10 @@ app.get('/api/messages', async (req, res) => {
     }
 });
 
-// メッセージ送信
+// メッセージ送信（返信情報の保存に対応）
 app.post('/api/messages', async (req, res) => {
     try {
-        const { sender, recipient, text, time, is_announcement } = req.body;
+        const { sender, recipient, text, time, is_announcement, reply_to_id, reply_to_sender, reply_to_text } = req.body;
         const newMessage = {
             sender,
             recipient,
@@ -150,7 +150,10 @@ app.post('/api/messages', async (req, res) => {
             time: time || new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
             is_read: sender === recipient, // Keepメモなら最初から既読
             is_deleted: false,
-            is_announcement: is_announcement || false
+            is_announcement: is_announcement || false,
+            reply_to_id: reply_to_id || null,
+            reply_to_sender: reply_to_sender || null,
+            reply_to_text: reply_to_text || null
         };
 
         const { data, error } = await supabase.from('messages').insert([newMessage]).select();
@@ -161,7 +164,7 @@ app.post('/api/messages', async (req, res) => {
     }
 });
 
-// メッセージ編集API (「編集済」をつけずに内容をアップデート)
+// メッセージ編集API
 app.post('/api/messages/edit', async (req, res) => {
     try {
         const { id, sender, newText } = req.body;
@@ -190,7 +193,7 @@ app.post('/api/messages/unsend', async (req, res) => {
     }
 });
 
-// 既読更新 (Keepメモの場合は実行しない)
+// 既読更新
 app.post('/api/read', async (req, res) => {
     try {
         const { myName, targetName } = req.body;
