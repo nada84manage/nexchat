@@ -12,10 +12,9 @@ const supabaseUrl = process.env.SUPABASE_URL;
 const supabaseKey = process.env.SUPABASE_KEY;
 const supabase = createClient(supabaseUrl || '', supabaseKey || '');
 
-// タイピング状態を一時保存するメモリ { "送信者_受信者": タイムスタンプ }
 const typingStatus = {};
 
-// 新規登録API
+// 新規登録
 app.post('/api/signup', async (req, res) => {
     try {
         const { name, email, password } = req.body;
@@ -23,21 +22,13 @@ app.post('/api/signup', async (req, res) => {
             return res.status(400).json({ success: false, message: 'すべての項目を入力してください。' });
         }
 
-        const { data: existingUsers, error: searchError } = await supabase
-            .from('users')
-            .select('*')
-            .eq('email', email);
-
-        if (searchError) throw searchError;
+        const { data: existingUsers } = await supabase.from('users').select('*').eq('email', email);
         if (existingUsers && existingUsers.length > 0) {
             return res.status(400).json({ success: false, message: 'このメールアドレスは既に登録されています。' });
         }
 
         const hashedPassword = await bcrypt.hash(password, 10);
-        const { error } = await supabase
-            .from('users')
-            .insert([{ name, email, password: hashedPassword }]);
-
+        const { error } = await supabase.from('users').insert([{ name, email, password: hashedPassword }]);
         if (error) throw error;
         res.json({ success: true, message: '登録が完了しました！' });
     } catch (err) {
@@ -45,15 +36,11 @@ app.post('/api/signup', async (req, res) => {
     }
 });
 
-// ログインAPI
+// ログイン
 app.post('/api/login', async (req, res) => {
     try {
         const { email, password } = req.body;
-        const { data: users, error } = await supabase
-            .from('users')
-            .select('*')
-            .eq('email', email);
-
+        const { data: users, error } = await supabase.from('users').select('*').eq('email', email);
         if (error || !users || users.length === 0) {
             return res.status(400).json({ success: false, message: 'メールアドレスまたはパスワードが間違っています。' });
         }
@@ -70,7 +57,7 @@ app.post('/api/login', async (req, res) => {
     }
 });
 
-// ユーザー一覧取得API
+// ユーザー一覧
 app.get('/api/users', async (req, res) => {
     try {
         const { data, error } = await supabase.from('users').select('name, email');
@@ -81,17 +68,68 @@ app.get('/api/users', async (req, res) => {
     }
 });
 
-// メッセージ取得API（自分宛て・他人宛て両対応）
+// フレンド追加API (QRコード等)
+app.post('/api/friends/add', async (req, res) => {
+    try {
+        const { myName, targetName } = req.body;
+        if (!myName || !targetName) return res.status(400).json({ success: false, message: 'データが不足しています。' });
+        if (myName === targetName) return res.status(400).json({ success: false, message: '自分自身を追加することはできません。' });
+
+        // 相手が存在するか確認
+        const { data: targetUser } = await supabase.from('users').select('*').eq('name', targetName).single();
+        if (!targetUser) return res.status(400).json({ success: false, message: '指定したユーザーが見つかりません。' });
+
+        // すでにフレンド関係（または登録済みか）チェック
+        const { data: existing } = await supabase
+            .from('friend_requests')
+            .select('*')
+            .or(`and(sender.eq.${myName},recipient.eq.${targetName}),and(sender.eq.${targetName},recipient.eq.${myName})`);
+
+        if (existing && existing.length > 0) {
+            return res.json({ success: true, message: 'すでにフレンドに追加されています。' });
+        }
+
+        const { error } = await supabase.from('friend_requests').insert([{ sender: myName, recipient: targetName, status: 'accepted' }]);
+        if (error) throw error;
+
+        res.json({ success: true, message: `${targetName} さんをフレンドに追加しました！` });
+    } catch (err) {
+        res.status(500).json({ success: false, message: 'フレンド追加に失敗しました。' });
+    }
+});
+
+// フレンド一覧取得API
+app.get('/api/friends', async (req, res) => {
+    try {
+        const { name } = req.query;
+        const { data, error } = await supabase
+            .from('friend_requests')
+            .select('*')
+            .or(`sender.eq.${name},recipient.eq.${name}`);
+
+        if (error) throw error;
+        
+        const friendNames = new Set();
+        data.forEach(row => {
+            if (row.sender === name) friendNames.add(row.recipient);
+            if (row.recipient === name) friendNames.add(row.sender);
+        });
+
+        res.json(Array.from(friendNames));
+    } catch (err) {
+        res.status(500).json({ success: false, message: 'フレンド一覧の取得に失敗しました。' });
+    }
+});
+
+// メッセージ取得
 app.get('/api/messages', async (req, res) => {
     try {
         const { user1, user2 } = req.query;
         let query = supabase.from('messages').select('*');
 
         if (user1 === user2) {
-            // 自分から自分宛て（Keepメモ）の場合
             query = query.eq('sender', user1).eq('recipient', user1);
         } else {
-            // 他の人とのやり取りの場合
             query = query.or(`and(sender.eq.${user1},recipient.eq.${user2}),and(sender.eq.${user2},recipient.eq.${user1})`);
         }
 
@@ -103,29 +141,21 @@ app.get('/api/messages', async (req, res) => {
     }
 });
 
-// メッセージ送信API
+// メッセージ送信
 app.post('/api/messages', async (req, res) => {
     try {
         const { sender, recipient, text, time, is_announcement } = req.body;
-        if (!sender || !recipient || !text) {
-            return res.status(400).json({ success: false, message: 'データが不足しています。' });
-        }
-
         const newMessage = {
             sender,
             recipient,
             text,
             time: time || new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-            is_read: false,
+            is_read: sender === recipient, // Keepメモなら最初から既読
             is_deleted: false,
             is_announcement: is_announcement || false
         };
 
-        const { data, error } = await supabase
-            .from('messages')
-            .insert([newMessage])
-            .select();
-
+        const { data, error } = await supabase.from('messages').insert([newMessage]).select();
         if (error) throw error;
         res.json({ success: true, message: data[0] });
     } catch (err) {
@@ -133,16 +163,28 @@ app.post('/api/messages', async (req, res) => {
     }
 });
 
-// 送信取り消しAPI（データベースから完全削除）
-app.post('/api/messages/unsend', async (req, res) => {
+// メッセージ編集API (「編集済」をつけずに内容をアップデート)
+app.post('/api/messages/edit', async (req, res) => {
     try {
-        const { id, sender } = req.body;
+        const { id, sender, newText } = req.body;
         const { error } = await supabase
             .from('messages')
-            .delete()
+            .update({ text: newText })
             .eq('id', id)
             .eq('sender', sender);
 
+        if (error) throw error;
+        res.json({ success: true });
+    } catch (err) {
+        res.status(500).json({ success: false, message: 'メッセージの編集に失敗しました。' });
+    }
+});
+
+// 送信取り消し（完全削除）
+app.post('/api/messages/unsend', async (req, res) => {
+    try {
+        const { id, sender } = req.body;
+        const { error } = await supabase.from('messages').delete().eq('id', id).eq('sender', sender);
         if (error) throw error;
         res.json({ success: true });
     } catch (err) {
@@ -150,7 +192,7 @@ app.post('/api/messages/unsend', async (req, res) => {
     }
 });
 
-// 既読更新API
+// 既読更新 (Keepメモの場合は実行しないようにガード)
 app.post('/api/read', async (req, res) => {
     try {
         const { myName, targetName } = req.body;
@@ -170,30 +212,19 @@ app.post('/api/read', async (req, res) => {
     }
 });
 
-// タイピング中状態の送信
+// タイピング状態
 app.post('/api/typing', (req, res) => {
     const { sender, recipient } = req.body;
-    if (sender && recipient) {
-        const key = `${sender}_${recipient}`;
-        typingStatus[key] = Date.now();
-    }
+    if (sender && recipient) typingStatus[`${sender}_${recipient}`] = Date.now();
     res.json({ success: true });
 });
 
-// タイピング中状態の確認
 app.get('/api/typing', (req, res) => {
     const { sender, recipient } = req.query;
     if (!sender || !recipient) return res.json({ isTyping: false });
-
-    const key = `${recipient}_${sender}`;
-    const lastTyped = typingStatus[key] || 0;
-    const now = Date.now();
-
-    const isTyping = (now - lastTyped) < 4000;
-    res.json({ isTyping });
+    const lastTyped = typingStatus[`${recipient}_${sender}`] || 0;
+    res.json({ isTyping: (Date.now() - lastTyped) < 4000 });
 });
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-    console.log(`Server is running on port ${PORT}`);
-});
+app.listen(PORT, () => console.log(`Server is running on port ${PORT}`));
