@@ -252,7 +252,6 @@
             document.getElementById('chatScreen').style.display = 'flex';
             document.getElementById('currentUserName').innerText = userName;
             loadMessages();
-            setInterval(loadMessages, 3000);
         }
 
         async function loadMessages() {
@@ -260,39 +259,46 @@
                 const response = await fetch(`${API_URL}/messages`);
                 const data = await response.json();
                 const messages = data.global || [];
-                const chatMessages = document.getElementById('chatMessages');
-                
-                chatMessages.innerHTML = '';
-                messages.forEach(msg => {
-                    const wrapper = document.createElement('div');
-                    const isMyMessage = msg.sender === currentUser.name;
-                    wrapper.className = `message-wrapper ${isMyMessage ? 'outgoing' : 'incoming'}`;
-
-                    const bubble = document.createElement('div');
-                    bubble.className = `message ${isMyMessage ? 'outgoing' : 'incoming'}`;
-                    bubble.innerText = `${msg.sender}: ${msg.text}`;
-
-                    const info = document.createElement('div');
-                    info.className = 'message-info';
-                    info.innerHTML = `<span>${msg.time}</span><span>${msg.read ? '既読' : '未読'}</span>`;
-
-                    wrapper.appendChild(bubble);
-                    wrapper.appendChild(info);
-                    chatMessages.appendChild(wrapper);
-                });
-                chatMessages.scrollTop = chatMessages.scrollHeight;
+                renderMessages(messages);
             } catch (e) {
                 console.error('メッセージ取得失敗', e);
             }
         }
 
-        // 入力内容をチェックして空欄や改行のみなら送信ボタンを無効化（灰色）にする
+        function renderMessages(messages) {
+            const chatMessages = document.getElementById('chatMessages');
+            // スクロール位置が一番下付近にあるか判定
+            const isScrolledToBottom = chatMessages.scrollHeight - chatMessages.clientHeight <= chatMessages.scrollTop + 50;
+
+            chatMessages.innerHTML = '';
+            messages.forEach(msg => {
+                const wrapper = document.createElement('div');
+                const isMyMessage = msg.sender === currentUser.name;
+                wrapper.className = `message-wrapper ${isMyMessage ? 'outgoing' : 'incoming'}`;
+
+                const bubble = document.createElement('div');
+                bubble.className = `message ${isMyMessage ? 'outgoing' : 'incoming'}`;
+                bubble.innerText = `${msg.sender}: ${msg.text}`;
+
+                const info = document.createElement('div');
+                info.className = 'message-info';
+                info.innerHTML = `<span>${msg.time}</span><span>${msg.read ? '既読' : '未読'}</span>`;
+
+                wrapper.appendChild(bubble);
+                wrapper.appendChild(info);
+                chatMessages.appendChild(wrapper);
+            });
+
+            if (isScrolledToBottom || chatMessages.children.length <= 5) {
+                chatMessages.scrollTop = chatMessages.scrollHeight;
+            }
+        }
+
         function handleInput() {
             const input = document.getElementById('messageInput');
             const sendBtn = document.getElementById('sendBtn');
             const text = input.value;
 
-            // 空白や改行のみの場合は trim() すると空文字になるため無効化
             if (text.trim().length > 0) {
                 sendBtn.disabled = false;
             } else {
@@ -308,19 +314,35 @@
             const now = new Date();
             const time = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
 
-            // 入力欄を即座にクリアしてボタンを再度無効化
+            // 入力欄をクリアしてボタンを一時無効化
             input.value = '';
             document.getElementById('sendBtn').disabled = true;
 
+            // 即座に自分の画面へ追加して表示させる（タイムラグをなくすため）
+            const chatMessages = document.getElementById('chatMessages');
+            const wrapper = document.createElement('div');
+            wrapper.className = 'message-wrapper outgoing';
+            
+            const bubble = document.createElement('div');
+            bubble.className = 'message outgoing';
+            bubble.innerText = `${currentUser.name}: ${text}`;
+
+            const info = document.createElement('div');
+            info.className = 'message-info';
+            info.innerHTML = `<span>${time}</span><span>未読</span>`;
+
+            wrapper.appendChild(bubble);
+            wrapper.appendChild(info);
+            chatMessages.appendChild(wrapper);
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+
             try {
-                // サーバーへ送信
+                // バックグラウンドでサーバーに送信
                 await fetch(`${API_URL}/messages`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ sender: currentUser.name, text, time })
                 });
-                // 送信後にすぐメッセージリストを再読み込み
-                loadMessages();
             } catch (e) {
                 console.error('送信失敗', e);
             }
