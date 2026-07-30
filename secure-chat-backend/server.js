@@ -7,13 +7,18 @@ const app = express();
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// 静的ファイルの提供（publicフォルダなどにあるHTML/CSS/JS用）
+// 静的ファイルの提供
 app.use(express.static(path.join(__dirname, 'public')));
 
-// Supabaseクライアントの初期化（環境変数から自動読み込み）
+// Supabaseクライアントの初期化（エラーチェック付き）
 const supabaseUrl = process.env.SUPABASE_URL;
 const supabaseKey = process.env.SUPABASE_KEY;
-const supabase = createClient(supabaseUrl, supabaseKey);
+
+if (!supabaseUrl || !supabaseKey) {
+    console.error("CRITICAL ERROR: SUPABASE_URL or SUPABASE_KEY is missing in environment variables!");
+}
+
+const supabase = createClient(supabaseUrl || '', supabaseKey || '');
 
 // ==========================================
 // 1. ユーザー登録（サインアップ）API
@@ -25,7 +30,6 @@ app.post('/api/signup', async (req, res) => {
             return res.status(400).json({ success: false, message: 'すべての項目を入力してください。' });
         }
 
-        // 既存ユーザーのメールアドレス重複チェック
         const { data: existingUsers, error: searchError } = await supabase
             .from('users')
             .select('*')
@@ -36,10 +40,8 @@ app.post('/api/signup', async (req, res) => {
             return res.status(400).json({ success: false, message: 'このメールアドレスは既に登録されています。' });
         }
 
-        // パスワードのハッシュ化（セキュリティ強化）
         const hashedPassword = await bcrypt.hash(password, 10);
 
-        // Supabaseの users テーブルに保存
         const { data, error } = await supabase
             .from('users')
             .insert([{ name, email, password: hashedPassword }])
@@ -64,7 +66,6 @@ app.post('/api/login', async (req, res) => {
             return res.status(400).json({ success: false, message: 'メールアドレスとパスワードを入力してください。' });
         }
 
-        // ユーザーを検索
         const { data: users, error } = await supabase
             .from('users')
             .select('*')
@@ -76,8 +77,6 @@ app.post('/api/login', async (req, res) => {
         }
 
         const user = users[0];
-
-        // ハッシュ化されたパスワードの照合
         const match = await bcrypt.compare(password, user.password);
         if (!match) {
             return res.status(400).json({ success: false, message: 'メールアドレスまたはパスワードが間違っています。' });
@@ -139,7 +138,6 @@ app.post('/api/messages', async (req, res) => {
     }
 });
 
-// サーバー起動
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
     console.log(`Server is running on port ${PORT}`);
