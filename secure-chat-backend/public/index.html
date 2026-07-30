@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>NexChat - Secure Edition</title>
+    <title>NexChat - Typing Indicator Edition</title>
     <style>
         :root {
             --primary: #6366f1;
@@ -16,6 +16,8 @@
             --error: #ef4444;
             --success: #10b981;
             --disabled: #475569;
+            --announcement-bg: rgba(245, 158, 11, 0.15);
+            --announcement-border: #f59e0b;
         }
 
         * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Inter', sans-serif; }
@@ -23,7 +25,6 @@
 
         .container { width: 100vw; height: 100vh; background: var(--bg-card); display: flex; overflow: hidden; position: relative; }
 
-        /* 認証画面 */
         #authScreen { width: 100%; height: 100%; display: flex; justify-content: center; align-items: center; background: var(--bg-dark); position: absolute; top: 0; left: 0; z-index: 10; }
         .auth-box { width: 100%; max-width: 400px; background: var(--bg-card); padding: 2.5rem; border-radius: 16px; box-shadow: 0 10px 25px rgba(0,0,0,0.5); border: 1px solid var(--border); }
         .auth-header { text-align: center; margin-bottom: 2rem; }
@@ -48,34 +49,47 @@
         .btn:hover { background: var(--primary-hover); }
         .btn:disabled { background: var(--disabled); cursor: not-allowed; }
 
-        /* チャット画面 */
         #chatScreen { width: 100%; height: 100%; display: none; background: var(--bg-dark); position: absolute; top: 0; left: 0; z-index: 5; }
         .chat-layout { width: 100%; height: 100%; display: flex; }
+        
         .sidebar { width: 320px; background: var(--bg-card); border-right: 1px solid var(--border); display: flex; flex-direction: column; }
         .user-profile { padding: 1.2rem; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; background: rgba(15, 23, 42, 0.5); }
+        
         .room-list { flex: 1; overflow-y: auto; }
-        .room-item { padding: 1rem 1.2rem; display: flex; align-items: center; gap: 12px; cursor: pointer; background: rgba(99, 102, 241, 0.1); border-bottom: 1px solid rgba(51, 65, 85, 0.5); }
-        .avatar { width: 45px; height: 45px; border-radius: 50%; background: var(--primary); display: flex; justify-content: center; align-items: center; font-weight: bold; font-size: 1.1rem; }
+        .room-item { padding: 1rem 1.2rem; display: flex; align-items: center; gap: 12px; cursor: pointer; border-bottom: 1px solid rgba(51, 65, 85, 0.5); transition: 0.2s; }
+        .room-item:hover { background: rgba(99, 102, 241, 0.1); }
+        .room-item.active { background: rgba(99, 102, 241, 0.2); border-left: 4px solid var(--primary); }
+        
+        .avatar { width: 45px; height: 45px; border-radius: 50%; background: var(--primary); display: flex; justify-content: center; align-items: center; font-weight: bold; font-size: 1.1rem; flex-shrink: 0; }
+        .avatar.keep { background: #f59e0b; }
 
         .chat-main { flex: 1; display: flex; flex-direction: column; background: var(--bg-dark); }
-        .chat-header { padding: 1.2rem 1.5rem; border-bottom: 1px solid var(--border); font-weight: 600; font-size: 1.1rem; background: var(--bg-card); }
+        .chat-header { padding: 1.2rem 1.5rem; border-bottom: 1px solid var(--border); font-weight: 600; font-size: 1.1rem; background: var(--bg-card); display: flex; justify-content: space-between; align-items: center; }
         
-        .chat-messages { flex: 1; padding: 2rem; overflow-y: auto; display: flex; flex-direction: column; gap: 1rem; }
+        .typing-indicator { font-size: 0.8rem; color: var(--success); font-weight: normal; display: none; }
 
-        /* LINE風メッセージのレイアウト */
-        .message-row { display: flex; align-items: flex-end; gap: 8px; max-width: 75%; }
+        .announcement-banner { background: var(--announcement-bg); border-bottom: 1px solid var(--announcement-border); padding: 10px 20px; font-size: 0.9rem; display: none; align-items: center; justify-content: space-between; color: #fbbf24; }
+
+        .chat-messages { flex: 1; padding: 2rem; overflow-y: auto; display: flex; flex-direction: column; gap: 1rem; position: relative; }
+
+        .message-row { display: flex; align-items: flex-end; gap: 8px; max-width: 75%; position: relative; }
         .message-row.incoming { align-self: flex-start; }
         .message-row.outgoing { align-self: flex-end; flex-direction: row-reverse; }
 
-        /* 吹き出し */
-        .message-bubble { padding: 12px 16px; border-radius: 12px; font-size: 0.95rem; line-height: 1.5; word-break: break-all; }
+        .message-bubble { padding: 12px 16px; border-radius: 12px; font-size: 0.95rem; line-height: 1.5; word-break: break-all; cursor: pointer; position: relative; }
         .message-row.incoming .message-bubble { background: var(--border); color: white; border-bottom-left-radius: 2px; }
         .message-row.outgoing .message-bubble { background: var(--primary); color: white; border-bottom-right-radius: 2px; }
 
-        /* メタ情報（既読・時刻） */
         .message-meta { display: flex; flex-direction: column; align-items: flex-end; font-size: 0.7rem; color: var(--text-muted); white-space: nowrap; margin-bottom: 2px; }
         .read-status { color: var(--primary); font-weight: 600; margin-bottom: 2px; }
         .message-time { font-size: 0.65rem; }
+
+        .msg-menu { position: absolute; background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.5); z-index: 20; display: none; flex-direction: column; overflow: hidden; }
+        .msg-menu button { background: transparent; border: none; color: white; padding: 10px 16px; text-align: left; cursor: pointer; font-size: 0.85rem; width: 100%; white-space: nowrap; }
+        .msg-menu button:hover { background: rgba(99, 102, 241, 0.3); }
+
+        .reply-preview-bar { background: rgba(51, 65, 85, 0.6); padding: 8px 15px; font-size: 0.85rem; display: none; justify-content: space-between; align-items: center; border-top: 1px solid var(--border); color: var(--text-muted); }
+        .reply-preview-bar button { background: transparent; border: none; color: var(--error); cursor: pointer; font-weight: bold; }
 
         .chat-input-area { padding: 1.2rem 1.5rem; background: var(--bg-card); border-top: 1px solid var(--border); display: flex; gap: 12px; }
         .chat-input-area input { flex: 1; padding: 14px; border-radius: 8px; border: 1px solid var(--border); background: var(--bg-dark); color: white; font-size: 1rem; }
@@ -83,6 +97,13 @@
 
         .logout-btn { background: transparent; border: none; color: var(--text-muted); cursor: pointer; font-size: 0.9rem; font-weight: 600; }
         .logout-btn:hover { color: var(--error); }
+        .no-chat-selected { margin: auto; color: var(--text-muted); text-align: center; font-size: 1.1rem; }
+
+        .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); display: none; justify-content: center; align-items: center; z-index: 100; }
+        .modal-box { background: var(--bg-card); width: 350px; padding: 20px; border-radius: 12px; border: 1px solid var(--border); }
+        .modal-box h3 { margin-bottom: 15px; font-size: 1.1rem; }
+        .forward-target-item { padding: 10px; cursor: pointer; border-bottom: 1px solid var(--border); transition: 0.2s; }
+        .forward-target-item:hover { background: rgba(99, 102, 241, 0.2); }
     </style>
 </head>
 <body>
@@ -92,7 +113,7 @@
             <div class="auth-box">
                 <div class="auth-header">
                     <h1>NexChat</h1>
-                    <p style="color: var(--text-muted);">セキュアチャットシステム</p>
+                    <p style="color: var(--text-muted);">フル機能DMシステム</p>
                 </div>
                 <div class="tabs">
                     <div class="tab active" onclick="switchTab('login')">ログイン</div>
@@ -150,41 +171,52 @@
                         <span id="currentUserName" style="font-weight: 600;"></span>
                         <button class="logout-btn" onclick="logout()">ログアウト</button>
                     </div>
-                    <div class="room-list">
-                        <div class="room-item">
-                            <div class="avatar">DEV</div>
-                            <div>
-                                <div style="font-weight: 600;">NexChat デベロッパー</div>
-                                <div style="font-size: 0.8rem; color: var(--text-muted);">オンライン</div>
-                            </div>
-                        </div>
-                    </div>
+                    <div class="room-list" id="roomList"></div>
                 </div>
                 
-                <div class="chat-main">
-                    <div class="chat-header">
-                        <span>NexChat デベロッパー (公式サポート)</span>
-                    </div>
-                    <div class="chat-messages" id="chatMessages"></div>
-                    <div class="chat-input-area">
-                        <input type="text" id="messageInput" placeholder="メッセージを入力..." oninput="handleInput()" onkeypress="checkEnter(event)">
-                        <button id="sendBtn" class="btn" onclick="sendMessage()" style="width: 100px;" disabled>送信</button>
-                    </div>
+                <div class="chat-main" id="chatMainArea">
+                    <div class="no-chat-selected">左側のユーザーまたはKeepメモを選択してチャットを開始</div>
                 </div>
             </div>
+        </div>
+    </div>
+
+    <div id="msgMenu" class="msg-menu">
+        <button onclick="menuActionReply()">💬 返信</button>
+        <button onclick="menuActionCopy()">📋 コピー</button>
+        <button onclick="menuActionForwardModal()">↗️ 転送</button>
+        <button id="menuUnsend" onclick="menuActionUnsend()">↩️ 送信を取り消す</button>
+        <button onclick="menuActionDeleteLocal()">🗑️ 削除（自分の端末のみ）</button>
+        <button onclick="menuActionAnnouncement()">📢 アナウンスに設定</button>
+    </div>
+
+    <div id="forwardModal" class="modal-overlay" onclick="closeForwardModal()">
+        <div class="modal-box" onclick="event.stopPropagation()">
+            <h3>メッセージの転送先を選択</h3>
+            <div id="forwardTargetList" style="max-height: 200px; overflow-y: auto;"></div>
+            <button class="btn" style="margin-top: 15px; background: var(--border);" onclick="closeForwardModal()">キャンセル</button>
         </div>
     </div>
 
     <script>
         const API_URL = '/api';
         let currentUser = null;
+        let currentRecipient = null;
+        let pollInterval = null;
+        let activeMsgId = null;
+        let activeMsgText = '';
+        let activeMsgSender = '';
+        let hiddenMessages = JSON.parse(localStorage.getItem('nexchat_hidden_msgs') || '[]');
+        let replyingToText = null;
+        let lastTypingSent = 0;
 
         window.addEventListener('DOMContentLoaded', () => {
             const loggedInUser = localStorage.getItem('nexchat_current_session');
             if (loggedInUser) {
                 currentUser = JSON.parse(loggedInUser);
-                showChatScreen(currentUser.name);
+                showChatScreen();
             }
+            window.onclick = () => { document.getElementById('msgMenu').style.display = 'none'; };
         });
 
         function togglePasswordVisibility(fieldId, btnElement) {
@@ -217,10 +249,9 @@
             const name = document.getElementById('signupName').value.trim();
             const email = document.getElementById('signupEmail').value.trim();
             const password = document.getElementById('signupPassword').value;
-            const passwordConfirm = document.getElementById('signupPasswordConfirm').value; // 確認用値
+            const passwordConfirm = document.getElementById('signupPasswordConfirm').value;
             const statusEl = document.getElementById('statusMsg');
 
-            // ▼ パスワードの一致チェック
             if (password !== passwordConfirm) {
                 statusEl.className = 'msg-box error';
                 statusEl.innerText = 'パスワードが一致しません。';
@@ -262,42 +293,159 @@
 
                 currentUser = { name: data.user.name, email };
                 localStorage.setItem('nexchat_current_session', JSON.stringify(currentUser));
-                showChatScreen(data.user.name);
+                showChatScreen();
             } catch (error) {
                 statusEl.className = 'msg-box error';
                 statusEl.innerText = error.message || '通信エラー';
             }
         }
 
-        function showChatScreen(userName) {
+        async function showChatScreen() {
             document.getElementById('authScreen').style.display = 'none';
             document.getElementById('chatScreen').style.display = 'block';
-            document.getElementById('currentUserName').innerText = userName;
-            loadMessages();
-            setInterval(loadMessages, 3000);
+            document.getElementById('currentUserName').innerText = currentUser.name;
+            await loadUsers();
+        }
+
+        async function loadUsers() {
+            try {
+                const response = await fetch(`${API_URL}/users`);
+                const users = await response.json();
+                const roomList = document.getElementById('roomList');
+                roomList.innerHTML = '';
+
+                const keepItem = document.createElement('div');
+                keepItem.className = 'room-item';
+                if (currentRecipient === currentUser.name) keepItem.classList.add('active');
+                keepItem.innerHTML = `
+                    <div class="avatar keep">Keep</div>
+                    <div>
+                        <div style="font-weight: 600;">Keepメモ</div>
+                        <div style="font-size: 0.8rem; color: var(--text-muted);">自分専用の保存用スペース</div>
+                    </div>
+                `;
+                keepItem.onclick = () => selectUser(currentUser.name);
+                roomList.appendChild(keepItem);
+
+                users.forEach(user => {
+                    const item = document.createElement('div');
+                    item.className = 'room-item';
+                    if (currentRecipient === user.name) item.classList.add('active');
+                    
+                    item.innerHTML = `
+                        <div class="avatar">${user.name.charAt(0)}</div>
+                        <div>
+                            <div style="font-weight: 600;">${user.name}</div>
+                            <div style="font-size: 0.8rem; color: var(--text-muted);">${user.email}</div>
+                        </div>
+                    `;
+                    item.onclick = () => selectUser(user.name);
+                    roomList.appendChild(item);
+                });
+            } catch (e) {
+                console.error('ユーザー一覧取得失敗', e);
+            }
+        }
+
+        function selectUser(recipientName) {
+            currentRecipient = recipientName;
+            replyingToText = null;
+            
+            document.querySelectorAll('.room-item').forEach(item => {
+                item.classList.remove('active');
+                if (item.innerText.includes(recipientName)) {
+                    item.classList.add('active');
+                }
+            });
+
+            const mainArea = document.getElementById('chatMainArea');
+            const titleText = recipientName === currentUser.name ? 'Keepメモ (自分専用)' : `${recipientName} とのチャット`;
+            
+            mainArea.innerHTML = `
+                <div class="chat-header">
+                    <div>
+                        <span>${titleText}</span>
+                        <span id="typingIndicator" class="typing-indicator"> ✏️ 入力中...</span>
+                    </div>
+                </div>
+                <div id="announcementBanner" class="announcement-banner">
+                    <span>📢 アナウンス: <span id="announcementText"></span></span>
+                </div>
+                <div class="chat-messages" id="chatMessages"></div>
+                <div id="replyPreviewBar" class="reply-preview-bar">
+                    <span id="replyPreviewText">返信中: ...</span>
+                    <button onclick="cancelReply()">✕ 終了</button>
+                </div>
+                <div class="chat-input-area">
+                    <input type="text" id="messageInput" placeholder="メッセージを入力..." oninput="handleInput()" onkeypress="checkEnter(event)">
+                    <button id="sendBtn" class="btn" onclick="sendMessage()" style="width: 100px;" disabled>送信</button>
+                </div>
+            `;
+
+            if (pollInterval) clearInterval(pollInterval);
+            loadData();
+            pollInterval = setInterval(loadData, 3000);
+        }
+
+        async function loadData() {
+            if (!currentRecipient) return;
+            await loadMessages();
+            await checkTypingStatus();
         }
 
         async function loadMessages() {
             try {
-                const response = await fetch(`${API_URL}/messages`);
+                const response = await fetch(`${API_URL}/messages?user1=${currentUser.name}&user2=${currentRecipient}`);
                 const messages = await response.json();
                 if (Array.isArray(messages)) {
                     renderMessages(messages);
+                    markAsRead();
                 }
             } catch (e) {
                 console.error('メッセージ取得失敗', e);
             }
         }
 
+        async function checkTypingStatus() {
+            if (currentRecipient === currentUser.name) return;
+            try {
+                const response = await fetch(`${API_URL}/typing?sender=${currentUser.name}&recipient=${currentRecipient}`);
+                const data = await response.json();
+                const indicator = document.getElementById('typingIndicator');
+                if (indicator) {
+                    indicator.style.display = data.isTyping ? 'inline' : 'none';
+                }
+            } catch (e) {}
+        }
+
+        async function markAsRead() {
+            if (currentRecipient === currentUser.name) return;
+            try {
+                await fetch(`${API_URL}/read`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ myName: currentUser.name, targetName: currentRecipient })
+                });
+            } catch (e) {}
+        }
+
         function renderMessages(messages) {
             const chatMessages = document.getElementById('chatMessages');
+            if (!chatMessages) return;
+
             const isAtBottom = chatMessages.scrollHeight - chatMessages.clientHeight <= chatMessages.scrollTop + 50;
-            
             chatMessages.innerHTML = '';
             
+            let latestAnnouncement = null;
+
             messages.forEach(msg => {
+                if (hiddenMessages.includes(msg.id)) return;
+
+                if (msg.is_announcement) {
+                    latestAnnouncement = msg.text;
+                }
+
                 const isMyMessage = msg.sender === currentUser.name;
-                
                 const row = document.createElement('div');
                 row.className = `message-row ${isMyMessage ? 'outgoing' : 'incoming'}`;
 
@@ -305,12 +453,18 @@
                 bubble.className = 'message-bubble';
                 bubble.innerText = msg.text;
 
+                bubble.onclick = (e) => {
+                    e.stopPropagation();
+                    openMsgMenu(e, msg.id, msg.text, msg.sender, isMyMessage);
+                };
+
                 const meta = document.createElement('div');
                 meta.className = 'message-meta';
                 
                 if (isMyMessage) {
+                    const readText = (currentRecipient === currentUser.name || msg.is_read) ? '既読' : '';
                     meta.innerHTML = `
-                        <div class="read-status">${msg.read || '既読'}</div>
+                        <div class="read-status">${readText}</div>
                         <div class="message-time">${msg.time}</div>
                     `;
                 } else {
@@ -324,21 +478,190 @@
                 chatMessages.appendChild(row);
             });
 
+            const banner = document.getElementById('announcementBanner');
+            const bannerText = document.getElementById('announcementText');
+            if (latestAnnouncement && banner && bannerText) {
+                bannerText.innerText = latestAnnouncement;
+                banner.style.display = 'flex';
+            } else if (banner) {
+                banner.style.display = 'none';
+            }
+
             if (isAtBottom || chatMessages.children.length <= 3) {
                 chatMessages.scrollTop = chatMessages.scrollHeight;
             }
         }
 
-        function handleInput() {
+        function openMsgMenu(e, id, text, sender, isMyMessage) {
+            activeMsgId = id;
+            activeMsgText = text;
+            activeMsgSender = sender;
+
+            const menu = document.getElementById('msgMenu');
+            const btnUnsend = document.getElementById('menuUnsend');
+            btnUnsend.style.display = isMyMessage ? 'block' : 'none';
+
+            menu.style.top = `${e.clientY}px`;
+            menu.style.left = `${e.clientX}px`;
+            menu.style.display = 'flex';
+        }
+
+        function menuActionReply() {
+            document.getElementById('msgMenu').style.display = 'none';
+            replyingToText = `[返信元のメッセージ] "${activeMsgText}"\n`;
+            
+            const bar = document.getElementById('replyPreviewBar');
+            const textEl = document.getElementById('replyPreviewText');
+            textEl.innerText = `返信中: "${activeMsgText}"`;
+            bar.style.display = 'flex';
+            document.getElementById('messageInput').focus();
+        }
+
+        function cancelReply() {
+            replyingToText = null;
+            document.getElementById('replyPreviewBar').style.display = 'none';
+        }
+
+        function menuActionCopy() {
+            document.getElementById('msgMenu').style.display = 'none';
+            navigator.clipboard.writeText(activeMsgText).then(() => {
+                alert('メッセージをクリップボードにコピーしました！');
+            }).catch(err => {
+                console.error('コピー失敗', err);
+            });
+        }
+
+        async function menuActionForwardModal() {
+            document.getElementById('msgMenu').style.display = 'none';
+            const targetList = document.getElementById('forwardTargetList');
+            targetList.innerHTML = '';
+
+            try {
+                const response = await fetch(`${API_URL}/users`);
+                const users = await response.json();
+
+                const keepDiv = document.createElement('div');
+                keepDiv.className = 'forward-target-item';
+                keepDiv.innerText = '📁 Keepメモ (自分)';
+                keepDiv.onclick = () => executeForward(currentUser.name);
+                targetList.appendChild(keepDiv);
+
+                users.forEach(user => {
+                    if (user.name === currentUser.name) return;
+                    const div = document.createElement('div');
+                    div.className = 'forward-target-item';
+                    div.innerText = `👤 ${user.name}`;
+                    div.onclick = () => executeForward(user.name);
+                    targetList.appendChild(div);
+                });
+
+                document.getElementById('forwardModal').style.display = 'flex';
+            } catch (e) {
+                console.error('転送先一覧の取得失敗', e);
+            }
+        }
+
+        function closeForwardModal() {
+            document.getElementById('forwardModal').style.display = 'none';
+        }
+
+        async function executeForward(targetRecipient) {
+            closeForwardModal();
+            const now = new Date();
+            const time = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+            const forwardedText = `[転送メッセージ]\n${activeMsgText}`;
+
+            try {
+                await fetch(`${API_URL}/messages`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        sender: currentUser.name,
+                        recipient: targetRecipient,
+                        text: forwardedText,
+                        time
+                    })
+                });
+                alert(`${targetRecipient} にメッセージを転送しました！`);
+            } catch (e) {
+                console.error('転送失敗', e);
+            }
+        }
+
+        async function menuActionUnsend() {
+            document.getElementById('msgMenu').style.display = 'none';
+            try {
+                await fetch(`${API_URL}/messages/unsend`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ id: activeMsgId, sender: currentUser.name })
+                });
+                loadMessages();
+            } catch (e) {
+                console.error('送信取り消し失敗', e);
+            }
+        }
+
+        function menuActionDeleteLocal() {
+            document.getElementById('msgMenu').style.display = 'none';
+            hiddenMessages.push(activeMsgId);
+            localStorage.setItem('nexchat_hidden_msgs', JSON.stringify(hiddenMessages));
+            loadMessages();
+        }
+
+        async function menuActionAnnouncement() {
+            document.getElementById('msgMenu').style.display = 'none';
+            const now = new Date();
+            const time = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+
+            try {
+                await fetch(`${API_URL}/messages`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        sender: currentUser.name,
+                        recipient: currentRecipient,
+                        text: `[アナウンス] ${activeMsgText}`,
+                        time,
+                        is_announcement: true
+                    })
+                });
+                loadMessages();
+            } catch (e) {
+                console.error('アナウンス設定失敗', e);
+            }
+        }
+
+        async function handleInput() {
             const input = document.getElementById('messageInput');
             const sendBtn = document.getElementById('sendBtn');
-            sendBtn.disabled = input.value.trim().length === 0;
+            if (sendBtn) {
+                sendBtn.disabled = input.value.trim().length === 0;
+            }
+
+            // タイピング中信号をサーバーに送る（連続送信を防ぐため2秒に1回）
+            const now = Date.now();
+            if (now - lastTypingSent > 2000 && currentRecipient && currentRecipient !== currentUser.name) {
+                lastTypingSent = now;
+                try {
+                    await fetch(`${API_URL}/typing`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ sender: currentUser.name, recipient: currentRecipient })
+                    });
+                } catch (e) {}
+            }
         }
 
         async function sendMessage() {
             const input = document.getElementById('messageInput');
-            const text = input.value.trim();
-            if (!text) return;
+            let text = input.value.trim();
+            if (!text || !currentRecipient) return;
+
+            if (replyingToText) {
+                text = `${replyingToText}${text}`;
+                cancelReply();
+            }
 
             const now = new Date();
             const time = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
@@ -346,32 +669,18 @@
             input.value = '';
             document.getElementById('sendBtn').disabled = true;
 
-            const chatMessages = document.getElementById('chatMessages');
-            const row = document.createElement('div');
-            row.className = 'message-row outgoing';
-
-            const bubble = document.createElement('div');
-            bubble.className = 'message-bubble';
-            bubble.innerText = text;
-
-            const meta = document.createElement('div');
-            meta.className = 'message-meta';
-            meta.innerHTML = `
-                <div class="read-status">既読</div>
-                <div class="message-time">${time}</div>
-            `;
-
-            row.appendChild(bubble);
-            row.appendChild(meta);
-            chatMessages.appendChild(row);
-            chatMessages.scrollTop = chatMessages.scrollHeight;
-
             try {
                 await fetch(`${API_URL}/messages`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ sender: currentUser.name, text, time })
+                    body: JSON.stringify({
+                        sender: currentUser.name,
+                        recipient: currentRecipient,
+                        text,
+                        time
+                    })
                 });
+                loadMessages();
             } catch (e) {
                 console.error('送信失敗', e);
             }
@@ -381,7 +690,7 @@
             if (event.key === 'Enter') {
                 event.preventDefault();
                 const sendBtn = document.getElementById('sendBtn');
-                if (!sendBtn.disabled) {
+                if (sendBtn && !sendBtn.disabled) {
                     sendMessage();
                 }
             }
