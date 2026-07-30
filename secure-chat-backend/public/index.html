@@ -72,7 +72,7 @@
         .message-row.incoming .message-bubble { background: var(--border); color: white; border-bottom-left-radius: 2px; }
         .message-row.outgoing .message-bubble { background: var(--primary); color: white; border-bottom-right-radius: 2px; }
 
-        /* メタ情報（既読・時刻）を吹き出しの左側に縦並びにする */
+        /* メタ情報（既読・時刻） */
         .message-meta { display: flex; flex-direction: column; align-items: flex-end; font-size: 0.7rem; color: var(--text-muted); white-space: nowrap; margin-bottom: 2px; }
         .read-status { color: var(--primary); font-weight: 600; margin-bottom: 2px; }
         .message-time { font-size: 0.65rem; }
@@ -219,7 +219,7 @@
                     body: JSON.stringify({ name, email, password })
                 });
                 const data = await response.json();
-                if (!response.ok) throw new Error(data.error);
+                if (!response.ok) throw new Error(data.message || '登録に失敗しました');
 
                 statusEl.className = 'msg-box success';
                 statusEl.innerText = '登録成功！ログインしてください。';
@@ -243,11 +243,11 @@
                     body: JSON.stringify({ email, password })
                 });
                 const data = await response.json();
-                if (!response.ok) throw new Error(data.error);
+                if (!response.ok) throw new Error(data.message || 'ログインに失敗しました');
 
-                currentUser = { name: data.name, email };
+                currentUser = { name: data.user.name, email };
                 localStorage.setItem('nexchat_current_session', JSON.stringify(currentUser));
-                showChatScreen(data.name);
+                showChatScreen(data.user.name);
             } catch (error) {
                 statusEl.className = 'msg-box error';
                 statusEl.innerText = error.message || '通信エラー';
@@ -259,16 +259,16 @@
             document.getElementById('chatScreen').style.display = 'block';
             document.getElementById('currentUserName').innerText = userName;
             loadMessages();
-            // 3秒ごとにサーバーからメッセージを自動同期
-            setInterval(loadMessages, 3000);
+            setInterval(loadMessages, 3000); // 3秒ごとに同期
         }
 
         async function loadMessages() {
             try {
                 const response = await fetch(`${API_URL}/messages`);
-                const data = await response.json();
-                const messages = data.global || [];
-                renderMessages(messages);
+                const messages = await response.json();
+                if (Array.isArray(messages)) {
+                    renderMessages(messages);
+                }
             } catch (e) {
                 console.error('メッセージ取得失敗', e);
             }
@@ -286,18 +286,16 @@
                 const row = document.createElement('div');
                 row.className = `message-row ${isMyMessage ? 'outgoing' : 'incoming'}`;
 
-                // 吹き出し
                 const bubble = document.createElement('div');
                 bubble.className = 'message-bubble';
-                bubble.innerText = msg.text; // 名前は含めない
+                bubble.innerText = msg.text;
 
-                // メタ情報（既読と時刻を縦並び）
                 const meta = document.createElement('div');
                 meta.className = 'message-meta';
                 
                 if (isMyMessage) {
                     meta.innerHTML = `
-                        <div class="read-status">${msg.read ? '既読' : '未読'}</div>
+                        <div class="read-status">${msg.read || '既読'}</div>
                         <div class="message-time">${msg.time}</div>
                     `;
                 } else {
@@ -319,11 +317,7 @@
         function handleInput() {
             const input = document.getElementById('messageInput');
             const sendBtn = document.getElementById('sendBtn');
-            if (input.value.trim().length > 0) {
-                sendBtn.disabled = false;
-            } else {
-                sendBtn.disabled = true;
-            }
+            sendBtn.disabled = input.value.trim().length === 0;
         }
 
         async function sendMessage() {
@@ -337,33 +331,13 @@
             input.value = '';
             document.getElementById('sendBtn').disabled = true;
 
-            // 即座に自分の画面に反映する（タイムラグを消すため）
-            const chatMessages = document.getElementById('chatMessages');
-            const row = document.createElement('div');
-            row.className = 'message-row outgoing';
-
-            const bubble = document.createElement('div');
-            bubble.className = 'message-bubble';
-            bubble.innerText = text;
-
-            const meta = document.createElement('div');
-            meta.className = 'message-meta';
-            meta.innerHTML = `
-                <div class="read-status">既読</div>
-                <div class="message-time">${time}</div>
-            `;
-
-            row.appendChild(bubble);
-            row.appendChild(meta);
-            chatMessages.appendChild(row);
-            chatMessages.scrollTop = chatMessages.scrollHeight;
-
             try {
                 await fetch(`${API_URL}/messages`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ sender: currentUser.name, text, time })
                 });
+                loadMessages();
             } catch (e) {
                 console.error('送信失敗', e);
             }
