@@ -264,9 +264,9 @@
             <h3>マイQRコード</h3>
             <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 15px;">このQRコードを相手に読み込んでもらいます</p>
             <div style="display: flex; justify-content: center; margin-bottom: 15px;">
-                <div id="qrcodeContainer" style="background: white; padding: 15px; border-radius: 8px; display: inline-block; min-width: 180px; min-height: 180px;"></div>
+                <div id="qrcodeContainer" style="background: #ffffff; padding: 15px; border-radius: 8px; display: inline-block; width: 210px; height: 210px;"></div>
             </div>
-            <button class="btn" style="margin-bottom: 10px; background: var(--primary);" onclick="generateMyQr()">QRコードを更新</button>
+            <button class="btn" style="margin-bottom: 10px; background: var(--primary);" onclick="updateAndGenerateMyQr()">QRコードを更新</button>
             <button class="btn" style="background: var(--border);" onclick="closeModal('myQrModal')">閉じる</button>
         </div>
     </div>
@@ -297,7 +297,6 @@
         let editingMsgId = null;
         let lastTypingSent = 0;
         let html5QrCode = null;
-        let currentMessagesCache = []; // 即時表示用のローカルキャッシュ
 
         window.addEventListener('DOMContentLoaded', () => {
             const loggedInUser = localStorage.getItem('nexchat_current_session');
@@ -443,7 +442,6 @@
         function selectUser(recipientName) {
             currentRecipient = recipientName;
             cancelReplyOrEdit();
-            currentMessagesCache = []; // ルーム切り替え時にキャッシュクリア
             
             document.getElementById('mainContainer').classList.add('mobile-chat-active');
 
@@ -503,7 +501,6 @@
                 const response = await fetch(`${API_URL}/messages?user1=${encodeURIComponent(currentUser.name)}&user2=${encodeURIComponent(currentRecipient)}`);
                 const messages = await response.json();
                 if (Array.isArray(messages)) {
-                    currentMessagesCache = messages;
                     renderMessages(messages);
                     markAsRead();
                 }
@@ -545,13 +542,12 @@
             messages.forEach(msg => {
                 if (hiddenMessages.includes(msg.id)) return;
                 
-                // アナウンスの厳密な判定：is_announcementフラグがtrueのものだけ処理
                 if (msg.is_announcement) {
-                    const cleanAnnouncementText = msg.text.trim();
+                    const cleanAnnouncementText = msg.text.replace('[アナウンス]', '').trim();
                     if (cleanAnnouncementText !== '') {
                         latestAnnouncement = cleanAnnouncementText;
                     } else {
-                        latestAnnouncement = null; // 空文字（解除）の場合は非表示にする
+                        latestAnnouncement = null;
                     }
                 }
 
@@ -754,7 +750,7 @@
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ sender: currentUser.name, recipient: targetRecipient, text: `[転送]\n${activeMsgText}`, time })
             });
-            loadMessages();
+            alert('転送しました');
         }
 
         function confirmUnsend() {
@@ -786,12 +782,10 @@
             document.getElementById('msgMenu').style.display = 'none';
             const now = new Date();
             const time = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
-            
-            // アナウンス専用データとして送信（通常のチャット欄にはメッセージとして出さないようにサーバー/データベース側で調整、またはフラグ管理）
             await fetch(`${API_URL}/messages`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ sender: currentUser.name, recipient: currentRecipient, text: activeMsgText, time, is_announcement: true })
+                body: JSON.stringify({ sender: currentUser.name, recipient: currentRecipient, text: `[アナウンス] ${activeMsgText}`, time, is_announcement: true })
             });
             loadMessages();
         }
@@ -799,12 +793,10 @@
         async function clearAnnouncement() {
             const now = new Date();
             const time = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
-            
-            // 解除時は中身を空文字にする
             await fetch(`${API_URL}/messages`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ sender: currentUser.name, recipient: currentRecipient, text: "", time, is_announcement: true })
+                body: JSON.stringify({ sender: currentUser.name, recipient: currentRecipient, text: `[アナウンス] `, time, is_announcement: true })
             });
             loadMessages();
         }
@@ -853,14 +845,11 @@
                 return;
             }
 
-            const now = new Date();
-            const timeStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
-
             let payload = {
                 sender: currentUser.name,
                 recipient: currentRecipient,
                 text,
-                time: timeStr
+                time: `${String(new Date().getHours()).padStart(2, '0')}:${String(new Date().getMinutes()).padStart(2, '0')}`
             };
 
             if (replyingToId) {
@@ -873,22 +862,6 @@
             input.value = '';
             document.getElementById('sendBtn').disabled = true;
 
-            // 即時表示用：仮のメッセージをキャッシュに追加して描画を高速化
-            const tempMsg = {
-                id: 'temp_' + Date.now(),
-                sender: currentUser.name,
-                recipient: currentRecipient,
-                text: payload.text,
-                time: timeStr,
-                is_read: currentRecipient === currentUser.name,
-                reply_to_id: payload.reply_to_id,
-                reply_to_sender: payload.reply_to_sender,
-                reply_to_text: payload.reply_to_text
-            };
-            currentMessagesCache.push(tempMsg);
-            renderMessages(currentMessagesCache);
-
-            // サーバーへ送信
             await fetch(`${API_URL}/messages`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -897,31 +870,49 @@
             loadMessages();
         }
 
-        function openMyQrModal() {
+        // マイQRモーダルを開く（開いた後にサーバーから最新の有効シークレットを取得して描画）
+        async function openMyQrModal() {
             document.getElementById('myQrModal').style.display = 'flex';
-            // モーダルが完全に表示されてからQRコードを生成する（白くなるのを防止）
-            setTimeout(generateMyQr, 100);
+            await updateAndGenerateMyQr(true); // 初回オープン時は既存のシークレット、または新規発行
         }
 
-        function generateMyQr() {
+        // 「QRコードを更新」ボタンを押したとき、またはモーダル表示時
+        async function updateAndGenerateMyQr(isInitialOpen = false) {
             const container = document.getElementById('qrcodeContainer');
-            container.innerHTML = '';
-            const qrData = `${currentUser.name}_${Date.now()}`;
+            container.innerHTML = '<span style="color: black; font-size: 0.85rem;">生成中...</span>';
+
             try {
-                if (typeof QRCode !== 'undefined') {
-                    new QRCode(container, {
-                        text: qrData,
-                        width: 180,
-                        height: 180,
-                        colorDark: "#000000",
-                        colorLight: "#ffffff",
-                        correctLevel: QRCode.CorrectLevel.H
-                    });
-                } else {
-                    container.innerHTML = '<span style="color: black; font-size: 0.85rem;">QRライブラリ読込中...</span>';
+                // サーバー側で新しいQR用シークレットを発行（これにより古いQRは即時無効化される）
+                const res = await fetch(`${API_URL}/qr/update`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name: currentUser.name })
+                });
+                const data = await res.json();
+                
+                if (data.success && data.qrData) {
+                    // QRコードに含めるデータ構造: "ユーザー名|シークレット値"
+                    const qrTextString = `${currentUser.name}|${data.qrData}`;
+                    
+                    container.innerHTML = '';
+                    setTimeout(() => {
+                        if (typeof QRCode !== 'undefined') {
+                            new QRCode(container, {
+                                text: qrTextString,
+                                width: 180,
+                                height: 180,
+                                colorDark: "#000000",
+                                colorLight: "#ffffff",
+                                correctLevel: QRCode.CorrectLevel.H
+                            });
+                        } else {
+                            container.innerHTML = '<span style="color: black; font-size: 0.85rem;">QRライブラリ読込エラー</span>';
+                        }
+                    }, 50);
                 }
             } catch (e) {
                 console.error("QRコード生成エラー:", e);
+                container.innerHTML = '<span style="color: red; font-size: 0.85rem;">通信エラー</span>';
             }
         }
 
@@ -959,8 +950,19 @@
 
         async function onScanSuccess(decodedText) {
             closeScannerModal();
-            const parts = decodedText.split('_');
-            const targetName = parts[0] ? parts[0].trim() : '';
+            
+            // "ユーザー名|シークレット値" の形式からデータを分解
+            let targetName = '';
+            let qrData = '';
+            
+            if (decodedText.includes('|')) {
+                const parts = decodedText.split('|');
+                targetName = parts[0].trim();
+                qrData = parts[1].trim();
+            } else {
+                // 互換性のため旧形式（名前のみ）の場合も考慮
+                targetName = decodedText.split('_')[0].trim();
+            }
 
             if (!targetName) return;
             if (targetName === currentUser.name) {
@@ -972,7 +974,7 @@
                 const response = await fetch(`${API_URL}/friends/add`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ myName: currentUser.name, targetName })
+                    body: JSON.stringify({ myName: currentUser.name, targetName, qrData })
                 });
                 const data = await response.json();
                 alert(data.message);
