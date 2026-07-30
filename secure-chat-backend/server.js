@@ -13,11 +13,12 @@ const supabaseUrl = process.env.SUPABASE_URL;
 const supabaseKey = process.env.SUPABASE_KEY;
 const supabase = createClient(supabaseUrl || '', supabaseKey || '');
 
+// 1. 新規登録API
 app.post('/api/signup', async (req, res) => {
     try {
         const { name, email, password } = req.body;
         if (!name || !email || !password) {
-            return res.status(400).json({ success: false, message: 'すべての項目を入力してください。' });
+            return res.status(400).json({ error: 'すべての項目を入力してください。' });
         }
 
         const { data: existingUsers, error: searchError } = await supabase
@@ -27,30 +28,30 @@ app.post('/api/signup', async (req, res) => {
 
         if (searchError) throw searchError;
         if (existingUsers && existingUsers.length > 0) {
-            return res.status(400).json({ success: false, message: 'このメールアドレスは既に登録されています。' });
+            return res.status(400).json({ error: 'このメールアドレスは既に登録されています。' });
         }
 
         const hashedPassword = await bcrypt.hash(password, 10);
 
-        const { data, error } = await supabase
+        const { error } = await supabase
             .from('users')
-            .insert([{ name, email, password: hashedPassword }])
-            .select();
+            .insert([{ name, email, password: hashedPassword }]);
 
         if (error) throw error;
 
-        res.json({ success: true, message: '登録が完了しました！', user: { name: data[0].name, email: data[0].email } });
+        res.json({ success: true, message: '登録が完了しました！' });
     } catch (err) {
         console.error('Signup error:', err);
-        res.status(500).json({ success: false, message: 'サーバーエラーが発生しました。' });
+        res.status(500).json({ error: 'サーバーエラーが発生しました。' });
     }
 });
 
+// 2. ログインAPI（フロントエンドの data.name に合わせる）
 app.post('/api/login', async (req, res) => {
     try {
         const { email, password } = req.body;
         if (!email || !password) {
-            return res.status(400).json({ success: false, message: 'メールアドレスとパスワードを入力してください。' });
+            return res.status(400).json({ error: 'メールアドレスとパスワードを入力してください。' });
         }
 
         const { data: users, error } = await supabase
@@ -60,22 +61,24 @@ app.post('/api/login', async (req, res) => {
 
         if (error) throw error;
         if (!users || users.length === 0) {
-            return res.status(400).json({ success: false, message: 'メールアドレスまたはパスワードが間違っています。' });
+            return res.status(400).json({ error: 'メールアドレスまたはパスワードが間違っています。' });
         }
 
         const user = users[0];
         const match = await bcrypt.compare(password, user.password);
         if (!match) {
-            return res.status(400).json({ success: false, message: 'メールアドレスまたはパスワードが間違っています。' });
+            return res.status(400).json({ error: 'メールアドレスまたはパスワードが間違っています。' });
         }
 
-        res.json({ success: true, message: 'ログイン成功！', user: { name: user.name, email: user.email } });
+        // フロントエンドが data.name で受け取れるように返す
+        res.json({ success: true, name: user.name });
     } catch (err) {
         console.error('Login error:', err);
-        res.status(500).json({ success: false, message: 'サーバーエラーが発生しました。' });
+        res.status(500).json({ error: 'サーバーエラーが発生しました。' });
     }
 });
 
+// 3. メッセージ取得API（フロントエンドの data.global に合わせる）
 app.get('/api/messages', async (req, res) => {
     try {
         const { data, error } = await supabase
@@ -84,25 +87,28 @@ app.get('/api/messages', async (req, res) => {
             .order('id', { ascending: true });
 
         if (error) throw error;
-        res.json(data || []);
+        
+        // フロントエンドが data.global で受け取れるようにラップする
+        res.json({ global: data || [] });
     } catch (err) {
         console.error('Get messages error:', err);
-        res.status(500).json({ success: false, message: 'メッセージの取得に失敗しました。' });
+        res.status(500).json({ error: 'メッセージの取得に失敗しました。' });
     }
 });
 
+// 4. メッセージ送信API
 app.post('/api/messages', async (req, res) => {
     try {
         const { sender, text, time, read } = req.body;
         if (!sender || !text) {
-            return res.status(400).json({ success: false, message: '送信者と本文が必要です。' });
+            return res.status(400).json({ error: '送信者と本文が必要です。' });
         }
 
         const newMessage = {
             sender,
             text,
             time: time || new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-            read: read || '既読'
+            read: read !== undefined ? read : true
         };
 
         const { data, error } = await supabase
@@ -115,7 +121,7 @@ app.post('/api/messages', async (req, res) => {
         res.json({ success: true, message: data[0] });
     } catch (err) {
         console.error('Post message error:', err);
-        res.status(500).json({ success: false, message: 'メッセージの送信に失敗しました。' });
+        res.status(500).json({ error: 'メッセージの送信に失敗しました。' });
     }
 });
 
