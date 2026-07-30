@@ -54,11 +54,11 @@
         #chatScreen { width: 100%; height: 100%; display: none; background: var(--bg-dark); position: absolute; top: 0; left: 0; z-index: 5; }
         .chat-layout { width: 100%; height: 100%; display: flex; }
         
-        .sidebar { width: 320px; background: var(--bg-card); border-right: 1px solid var(--border); display: flex; flex-direction: column; }
+        .sidebar { width: 320px; background: var(--bg-card); border-right: 1px solid var(--border); display: flex; flex-direction: column; height: 100%; }
         .user-profile { padding: 1.2rem; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; background: rgba(15, 23, 42, 0.5); }
         
         .sidebar-actions { padding: 10px 15px; display: flex; gap: 8px; border-bottom: 1px solid var(--border); background: var(--bg-card); }
-        .sidebar-actions button { flex: 1; padding: 8px; font-size: 0.8rem; background: var(--border); color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 500; }
+        .sidebar-actions button { flex: 1; padding: 8px; font-size: 0.85rem; background: var(--border); color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 500; }
         .sidebar-actions button:hover { background: var(--primary); }
 
         .room-list { flex: 1; overflow-y: auto; }
@@ -69,11 +69,14 @@
         .avatar { width: 45px; height: 45px; border-radius: 50%; background: var(--primary); display: flex; justify-content: center; align-items: center; font-weight: bold; font-size: 1.1rem; flex-shrink: 0; }
         .avatar.keep { background: #f59e0b; }
 
-        .chat-main { flex: 1; display: flex; flex-direction: column; background: var(--bg-dark); }
+        .chat-main { flex: 1; display: flex; flex-direction: column; background: var(--bg-dark); height: 100%; }
         .chat-header { padding: 1.2rem 1.5rem; border-bottom: 1px solid var(--border); font-weight: 600; font-size: 1.1rem; background: var(--bg-card); display: flex; justify-content: space-between; align-items: center; }
         
+        .back-btn { display: none; background: transparent; border: none; color: var(--primary); font-size: 1rem; font-weight: bold; cursor: pointer; margin-right: 10px; }
         .typing-indicator { font-size: 0.8rem; color: var(--success); font-weight: normal; display: none; }
+        
         .announcement-banner { background: var(--announcement-bg); border-bottom: 1px solid var(--announcement-border); padding: 10px 20px; font-size: 0.9rem; display: none; align-items: center; justify-content: space-between; color: #fbbf24; }
+        .announcement-banner button { background: transparent; border: none; color: #fbbf24; cursor: pointer; font-weight: bold; font-size: 0.85rem; }
 
         .chat-messages { flex: 1; padding: 2rem; overflow-y: auto; display: flex; flex-direction: column; gap: 1rem; position: relative; }
 
@@ -81,37 +84,52 @@
         .message-row.incoming { align-self: flex-start; }
         .message-row.outgoing { align-self: flex-end; flex-direction: row-reverse; }
 
-        .message-bubble { padding: 12px 16px; border-radius: 12px; font-size: 0.95rem; line-height: 1.5; word-break: break-all; cursor: pointer; position: relative; }
+        .message-bubble { padding: 12px 16px; border-radius: 12px; font-size: 0.95rem; line-height: 1.5; word-break: break-all; white-space: pre-wrap; position: relative; }
         .message-row.incoming .message-bubble { background: var(--border); color: white; border-bottom-left-radius: 2px; }
         .message-row.outgoing .message-bubble { background: var(--primary); color: white; border-bottom-right-radius: 2px; }
+
+        /* LINE風返信ブロックのスタイル */
+        .reply-box { background: rgba(0, 0, 0, 0.2); border-left: 3px solid white; padding: 6px 10px; border-radius: 4px; margin-bottom: 6px; font-size: 0.85rem; cursor: pointer; opacity: 0.85; }
+        .reply-box:hover { opacity: 1; }
+        .reply-sender { font-weight: bold; font-size: 0.75rem; margin-bottom: 2px; }
+        .reply-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 200px; }
 
         .message-meta { display: flex; flex-direction: column; align-items: flex-end; font-size: 0.7rem; color: var(--text-muted); white-space: nowrap; margin-bottom: 2px; }
         .read-status { color: var(--primary); font-weight: 600; margin-bottom: 2px; }
         .message-time { font-size: 0.65rem; }
 
-        .msg-menu { position: absolute; background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.5); z-index: 20; display: none; flex-direction: column; overflow: hidden; }
+        .msg-menu { position: fixed; background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.5); z-index: 200; display: none; flex-direction: column; overflow: hidden; width: 160px; }
         .msg-menu button { background: transparent; border: none; color: white; padding: 10px 16px; text-align: left; cursor: pointer; font-size: 0.85rem; width: 100%; white-space: nowrap; }
         .msg-menu button:hover { background: rgba(99, 102, 241, 0.3); }
 
         .reply-preview-bar { background: rgba(51, 65, 85, 0.6); padding: 8px 15px; font-size: 0.85rem; display: none; justify-content: space-between; align-items: center; border-top: 1px solid var(--border); color: var(--text-muted); }
         .reply-preview-bar button { background: transparent; border: none; color: var(--error); cursor: pointer; font-weight: bold; }
 
-        .chat-input-area { padding: 1.2rem 1.5rem; background: var(--bg-card); border-top: 1px solid var(--border); display: flex; gap: 12px; }
-        .chat-input-area input { flex: 1; padding: 14px; border-radius: 8px; border: 1px solid var(--border); background: var(--bg-dark); color: white; font-size: 1rem; }
-        .chat-input-area input:focus { outline: none; border-color: var(--primary); }
+        .chat-input-area { padding: 1.2rem 1.5rem; background: var(--bg-card); border-top: 1px solid var(--border); display: flex; gap: 12px; align-items: flex-end; }
+        .chat-input-area textarea { flex: 1; padding: 12px; border-radius: 8px; border: 1px solid var(--border); background: var(--bg-dark); color: white; font-size: 1rem; resize: none; height: 48px; max-height: 120px; line-height: 1.4; }
+        .chat-input-area textarea:focus { outline: none; border-color: var(--primary); }
 
         .logout-btn { background: transparent; border: none; color: var(--text-muted); cursor: pointer; font-size: 0.9rem; font-weight: 600; }
         .logout-btn:hover { color: var(--error); }
         .no-chat-selected { margin: auto; color: var(--text-muted); text-align: center; font-size: 1.1rem; }
 
-        .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); display: none; justify-content: center; align-items: center; z-index: 100; }
-        .modal-box { background: var(--bg-card); width: 400px; padding: 25px; border-radius: 12px; border: 1px solid var(--border); text-align: center; }
+        .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); display: none; justify-content: center; align-items: center; z-index: 300; }
+        .modal-box { background: var(--bg-card); width: 400px; max-width: 90%; padding: 25px; border-radius: 12px; border: 1px solid var(--border); text-align: center; }
         .modal-box h3 { margin-bottom: 15px; font-size: 1.1rem; text-align: left; }
+
+        /* スマホ対応（画面幅768px以下） */
+        @media (max-width: 768px) {
+            .sidebar { width: 100%; display: flex; }
+            .chat-main { display: none; width: 100%; position: absolute; top: 0; left: 0; z-index: 10; }
+            .container.mobile-chat-active .sidebar { display: none; }
+            .container.mobile-chat-active .chat-main { display: flex; }
+            .back-btn { display: inline-block; }
+        }
     </style>
 </head>
 <body>
 
-    <div class="container">
+    <div class="container" id="mainContainer">
         <div id="authScreen">
             <div class="auth-box">
                 <div class="auth-header">
@@ -177,7 +195,6 @@
                     <div class="sidebar-actions">
                         <button onclick="openMyQrModal()">マイQR</button>
                         <button onclick="openScannerModal()">QR読取</button>
-                        <button onclick="openAddFriendModal()">手動追加</button>
                     </div>
                     <div class="room-list" id="roomList"></div>
                 </div>
@@ -194,8 +211,8 @@
         <button onclick="menuActionEdit()">編集</button>
         <button onclick="menuActionCopy()">コピー</button>
         <button onclick="menuActionForwardModal()">転送</button>
-        <button id="menuUnsend" onclick="menuActionUnsend()">送信取り消し</button>
-        <button onclick="menuActionDeleteLocal()">削除 (この端末のみ)</button>
+        <button id="menuUnsend" onclick="confirmUnsend()">送信取り消し</button>
+        <button onclick="confirmDeleteLocal()">削除</button>
         <button onclick="menuActionAnnouncement()">アナウンス設定</button>
     </div>
 
@@ -212,6 +229,7 @@
             <h3>マイQRコード</h3>
             <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 15px;">このQRコードを相手に読み込んでもらいます</p>
             <div id="qrcodeContainer" style="display: flex; justify-content: center; background: white; padding: 15px; border-radius: 8px; margin-bottom: 15px;"></div>
+            <button class="btn" style="margin-bottom: 10px; background: var(--primary);" onclick="generateMyQr()">QRコードを更新</button>
             <button class="btn" style="background: var(--border);" onclick="closeModal('myQrModal')">閉じる</button>
         </div>
     </div>
@@ -224,18 +242,6 @@
         </div>
     </div>
 
-    <div id="addFriendModal" class="modal-overlay" onclick="closeModal('addFriendModal')">
-        <div class="modal-box" onclick="event.stopPropagation()">
-            <h3>フレンド追加</h3>
-            <div class="form-group" style="text-align: left; margin-top: 15px;">
-                <label>ユーザー名</label>
-                <input type="text" id="friendNameInput" placeholder="正確なユーザー名を入力">
-            </div>
-            <button class="btn" onclick="submitAddFriend()">追加する</button>
-            <button class="btn" style="margin-top: 10px; background: var(--border);" onclick="closeModal('addFriendModal')">キャンセル</button>
-        </div>
-    </div>
-
     <script>
         const API_URL = '/api';
         let currentUser = null;
@@ -245,6 +251,8 @@
         let activeMsgText = '';
         let activeMsgSender = '';
         let hiddenMessages = JSON.parse(localStorage.getItem('nexchat_hidden_msgs') || '[]');
+        let replyingToId = null;
+        let replyingToSender = null;
         let replyingToText = null;
         let editingMsgId = null;
         let lastTypingSent = 0;
@@ -257,6 +265,11 @@
                 showChatScreen();
             }
             window.onclick = () => { document.getElementById('msgMenu').style.display = 'none'; };
+            
+            // ブラウザ標準の右クリックメニューを完全無効化
+            window.addEventListener('contextmenu', (e) => {
+                e.preventDefault();
+            });
         });
 
         function togglePasswordVisibility(fieldId, btnElement) {
@@ -388,11 +401,13 @@
             }
         }
 
-        async function selectUser(recipientName) {
+        function selectUser(recipientName) {
             currentRecipient = recipientName;
-            replyingToText = null;
-            editingMsgId = null;
+            cancelReplyOrEdit();
             
+            // スマホ表示の切り替えクラス追加
+            document.getElementById('mainContainer').classList.add('mobile-chat-active');
+
             const roomListItems = document.querySelectorAll('.room-item');
             roomListItems.forEach(item => {
                 item.classList.remove('active');
@@ -406,13 +421,15 @@
             
             mainArea.innerHTML = `
                 <div class="chat-header">
-                    <div>
+                    <div style="display: flex; align-items: center;">
+                        <button class="back-btn" onclick="backToSidebar()">＜ 戻る</button>
                         <span>${titleText}</span>
                         <span id="typingIndicator" class="typing-indicator"> 入力中...</span>
                     </div>
                 </div>
                 <div id="announcementBanner" class="announcement-banner">
                     <span>アナウンス: <span id="announcementText"></span></span>
+                    <button onclick="clearAnnouncement()">解除</button>
                 </div>
                 <div class="chat-messages" id="chatMessages"></div>
                 <div id="replyPreviewBar" class="reply-preview-bar">
@@ -420,14 +437,20 @@
                     <button onclick="cancelReplyOrEdit()">✕ 終了</button>
                 </div>
                 <div class="chat-input-area">
-                    <input type="text" id="messageInput" placeholder="メッセージを入力..." oninput="handleInput()" onkeypress="checkEnter(event)">
-                    <button id="sendBtn" class="btn" onclick="sendMessage()" style="width: 100px;" disabled>送信</button>
+                    <textarea id="messageInput" placeholder="メッセージを入力... (Shift+Enterで改行)" oninput="handleInput()" onkeydown="checkKey(event)"></textarea>
+                    <button id="sendBtn" class="btn" onclick="sendMessage()" style="width: 100px; height: 48px;" disabled>送信</button>
                 </div>
             `;
 
             if (pollInterval) clearInterval(pollInterval);
             loadData();
             pollInterval = setInterval(loadData, 3000);
+        }
+
+        function backToSidebar() {
+            document.getElementById('mainContainer').classList.remove('mobile-chat-active');
+            currentRecipient = null;
+            if (pollInterval) clearInterval(pollInterval);
         }
 
         async function loadData() {
@@ -486,14 +509,44 @@
                 const isMyMessage = msg.sender === currentUser.name;
                 const row = document.createElement('div');
                 row.className = `message-row ${isMyMessage ? 'outgoing' : 'incoming'}`;
+                row.id = `msg-row-${msg.id}`;
 
                 const bubble = document.createElement('div');
                 bubble.className = 'message-bubble';
-                bubble.innerText = msg.text;
 
-                bubble.onclick = (e) => {
+                // 返信データが含まれている場合の処理 (JSON形式で保持していると想定、または構造化テキスト)
+                let displayMainText = msg.text;
+                if (msg.reply_to_id && msg.reply_to_text) {
+                    const replyBox = document.createElement('div');
+                    replyBox.className = 'reply-box';
+                    replyBox.innerHTML = `
+                        <div class="reply-sender">${escapeHtml(msg.reply_to_sender)}</div>
+                        <div class="reply-text">${escapeHtml(msg.reply_to_text)}</div>
+                    `;
+                    // 返信元をクリックしたらそのメッセージにスクロールジャンプ
+                    replyBox.onclick = (e) => {
+                        e.stopPropagation();
+                        scrollToMessage(msg.reply_to_id);
+                    };
+                    bubble.appendChild(replyBox);
+                    
+                    // 本体テキストから返信プレフィックスを除外して純粋なテキストを表示
+                    if (displayMainText.startsWith('[返信]')) {
+                        const lines = displayMainText.split('\n');
+                        lines.splice(0, 2); // 返信ヘッダー部分をカット
+                        displayMainText = lines.join('\n');
+                    }
+                }
+
+                const textSpan = document.createElement('div');
+                textSpan.innerText = displayMainText;
+                bubble.appendChild(textSpan);
+
+                // 右クリックイベントでメニューを開く
+                bubble.oncontextmenu = (e) => {
+                    e.preventDefault();
                     e.stopPropagation();
-                    openMsgMenu(e, msg.id, msg.text, msg.sender, isMyMessage);
+                    openMsgMenu(e, msg.id, displayMainText, msg.sender, isMyMessage);
                 };
 
                 const meta = document.createElement('div');
@@ -528,6 +581,22 @@
             }
         }
 
+        function escapeHtml(str) {
+            return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+        }
+
+        function scrollToMessage(targetId) {
+            const targetRow = document.getElementById(`msg-row-${targetId}`);
+            if (targetRow) {
+                targetRow.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                targetRow.style.transition = 'background 0.3s';
+                targetRow.style.background = 'rgba(99, 102, 241, 0.3)';
+                setTimeout(() => { targetRow.style.background = 'transparent'; }, 1000);
+            } else {
+                alert('該当のメッセージが見つからないか、削除されています');
+            }
+        }
+
         function openMsgMenu(e, id, text, sender, isMyMessage) {
             activeMsgId = id;
             activeMsgText = text;
@@ -540,18 +609,26 @@
             btnUnsend.style.display = isMyMessage ? 'block' : 'none';
             btnEdit.style.display = isMyMessage ? 'block' : 'none';
 
-            menu.style.top = `${e.clientY}px`;
-            menu.style.left = `${e.clientX}px`;
+            // 画面外にはみ出ないように位置を調整
+            let posX = e.clientX;
+            let posY = e.clientY;
+            if (posX + 160 > window.innerWidth) posX = window.innerWidth - 170;
+            if (posY + 250 > window.innerHeight) posY = window.innerHeight - 260;
+
+            menu.style.top = `${posY}px`;
+            menu.style.left = `${posX}px`;
             menu.style.display = 'flex';
         }
 
         function menuActionReply() {
             document.getElementById('msgMenu').style.display = 'none';
-            replyingToText = `[返信] "${activeMsgText}"\n`;
+            replyingToId = activeMsgId;
+            replyingToSender = activeMsgSender;
+            replyingToText = activeMsgText;
             editingMsgId = null;
             
             const bar = document.getElementById('replyPreviewBar');
-            document.getElementById('replyPreviewText').innerText = `返信: "${activeMsgText}"`;
+            document.getElementById('replyPreviewText').innerText = `返信先: ${activeMsgSender} 「${activeMsgText}」`;
             bar.style.display = 'flex';
             document.getElementById('messageInput').focus();
         }
@@ -559,7 +636,7 @@
         function menuActionEdit() {
             document.getElementById('msgMenu').style.display = 'none';
             editingMsgId = activeMsgId;
-            replyingToText = null;
+            replyingToId = null;
 
             const input = document.getElementById('messageInput');
             input.value = activeMsgText;
@@ -573,11 +650,19 @@
         }
 
         function cancelReplyOrEdit() {
+            replyingToId = null;
+            replyingToSender = null;
             replyingToText = null;
             editingMsgId = null;
-            document.getElementById('messageInput').value = '';
-            document.getElementById('sendBtn').innerText = '送信';
-            document.getElementById('replyPreviewBar').style.display = 'none';
+            const input = document.getElementById('messageInput');
+            if (input) input.value = '';
+            const sendBtn = document.getElementById('sendBtn');
+            if (sendBtn) {
+                sendBtn.innerText = '送信';
+                sendBtn.disabled = true;
+            }
+            const bar = document.getElementById('replyPreviewBar');
+            if (bar) bar.style.display = 'none';
         }
 
         function menuActionCopy() {
@@ -628,8 +713,15 @@
             alert('転送しました');
         }
 
-        async function menuActionUnsend() {
+        // 警告つき送信取り消し
+        function confirmUnsend() {
             document.getElementById('msgMenu').style.display = 'none';
+            if (confirm('本当にこのメッセージの送信を取り消しますか？')) {
+                executeUnsend();
+            }
+        }
+
+        async function executeUnsend() {
             await fetch(`${API_URL}/messages/unsend`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -638,11 +730,14 @@
             loadMessages();
         }
 
-        function menuActionDeleteLocal() {
+        // 警告つき削除（削除という言葉は警告文にのみ含める）
+        function confirmDeleteLocal() {
             document.getElementById('msgMenu').style.display = 'none';
-            hiddenMessages.push(activeMsgId);
-            localStorage.setItem('nexchat_hidden_msgs', JSON.stringify(hiddenMessages));
-            loadMessages();
+            if (confirm('本当にこのメッセージを削除しますか？')) {
+                hiddenMessages.push(activeMsgId);
+                localStorage.setItem('nexchat_hidden_msgs', JSON.stringify(hiddenMessages));
+                loadMessages();
+            }
         }
 
         async function menuActionAnnouncement() {
@@ -653,6 +748,18 @@
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ sender: currentUser.name, recipient: currentRecipient, text: `[アナウンス] ${activeMsgText}`, time, is_announcement: true })
+            });
+            loadMessages();
+        }
+
+        async function clearAnnouncement() {
+            const now = new Date();
+            const time = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+            // 空のアナウンスを送信して上書き解除する仕組み
+            await fetch(`${API_URL}/messages`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ sender: currentUser.name, recipient: currentRecipient, text: `[アナウンス] `, time, is_announcement: true })
             });
             loadMessages();
         }
@@ -673,6 +780,21 @@
             }
         }
 
+        // Shift+Enter対応キーチェック
+        function checkKey(event) {
+            if (event.key === 'Enter') {
+                if (event.shiftKey) {
+                    // Shift + Enter の場合は改行を許可（デフォルト動作）
+                    return;
+                } else {
+                    // Enter のみの場合は送信
+                    event.preventDefault();
+                    const sendBtn = document.getElementById('sendBtn');
+                    if (sendBtn && !sendBtn.disabled) sendMessage();
+                }
+            }
+        }
+
         async function sendMessage() {
             const input = document.getElementById('messageInput');
             let text = input.value.trim();
@@ -689,45 +811,43 @@
                 return;
             }
 
-            if (replyingToText) {
-                text = `${replyingToText}${text}`;
-                cancelReplyOrEdit();
+            let payload = {
+                sender: currentUser.name,
+                recipient: currentRecipient,
+                text,
+                time: `${String(new Date().getHours()).padStart(2, '0')}:${String(new Date().getMinutes()).padStart(2, '0')}`
+            };
+
+            if (replyingToId) {
+                payload.reply_to_id = replyingToId;
+                payload.reply_to_sender = replyingToSender;
+                payload.reply_to_text = replyingToText;
             }
 
-            const now = new Date();
-            const time = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
-
+            cancelReplyOrEdit();
             input.value = '';
             document.getElementById('sendBtn').disabled = true;
 
             await fetch(`${API_URL}/messages`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ sender: currentUser.name, recipient: currentRecipient, text, time })
+                body: JSON.stringify(payload)
             });
             loadMessages();
         }
 
-        function checkEnter(event) {
-            if (event.key === 'Enter') {
-                event.preventDefault();
-                const sendBtn = document.getElementById('sendBtn');
-                if (sendBtn && !sendBtn.disabled) sendMessage();
-            }
-        }
-
         function openMyQrModal() {
-            const container = document.getElementById('qrcodeContainer');
-            container.innerHTML = '';
-            new QRCode(container, {
-                text: currentUser.name,
-                width: 180,
-                height: 180
-            });
+            generateMyQr();
             document.getElementById('myQrModal').style.display = 'flex';
         }
 
-        // カメラを使ったQRコード読み取り機能
+        function generateMyQr() {
+            const container = document.getElementById('qrcodeContainer');
+            container.innerHTML = '';
+            const qrData = `${currentUser.name}_${Date.now()}`;
+            new QRCode(container, { text: qrData, width: 180, height: 180 });
+        }
+
         function openScannerModal() {
             document.getElementById('scannerModal').style.display = 'flex';
             html5QrCodeScanner = new Html5QrcodeScanner("reader", { fps: 10, qrbox: 250 });
@@ -736,18 +856,21 @@
 
         function closeScannerModal() {
             if (html5QrCodeScanner) {
-                html5QrCodeScanner.clear().catch(error => {
-                    console.error("スキャナー停止エラー", error);
-                });
+                html5QrCodeScanner.clear().catch(error => { console.error(error); });
             }
             document.getElementById('scannerModal').style.display = 'none';
         }
 
         async function onScanSuccess(decodedText) {
-            // スキャン成功したらスキャナーを閉じてフレンド追加APIを呼ぶ
             closeScannerModal();
-            const targetName = decodedText.trim();
+            const parts = decodedText.split('_');
+            const targetName = parts[0] ? parts[0].trim() : '';
+
             if (!targetName) return;
+            if (targetName === currentUser.name) {
+                alert('自分自身を追加することはできません');
+                return;
+            }
 
             try {
                 const response = await fetch(`${API_URL}/friends/add`, {
@@ -765,35 +888,7 @@
             }
         }
 
-        function onScanError(errorMessage) {
-            // 読み取り中の微小なエラーは無視
-        }
-
-        function openAddFriendModal() {
-            document.getElementById('friendNameInput').value = '';
-            document.getElementById('addFriendModal').style.display = 'flex';
-        }
-
-        async function submitAddFriend() {
-            const targetName = document.getElementById('friendNameInput').value.trim();
-            if (!targetName) return;
-
-            try {
-                const response = await fetch(`${API_URL}/friends/add`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ myName: currentUser.name, targetName })
-                });
-                const data = await response.json();
-                alert(data.message);
-                if (data.success) {
-                    closeModal('addFriendModal');
-                    loadUsers();
-                }
-            } catch (e) {
-                alert('エラーが発生しました');
-            }
-        }
+        function onScanError(errorMessage) {}
 
         function logout() {
             localStorage.removeItem('nexchat_current_session');
