@@ -489,7 +489,6 @@
                 meta.className = 'message-meta';
                 
                 if (isMyMessage) {
-                    // Keepメモの場合は「既読」を表示せずスッキリさせる、他人のDMは既読判定
                     const readText = (currentRecipient === currentUser.name) ? '' : (msg.is_read ? '既読' : '');
                     meta.innerHTML = `
                         <div class="read-status">${readText}</div>
@@ -525,7 +524,7 @@
 
             const menu = document.getElementById('msgMenu');
             const btnUnsend = document.getElementById('menuUnsend');
-            const btnEdit = menu.querySelector('button:nth-child(2)'); // 編集ボタン
+            const btnEdit = menu.querySelector('button:nth-child(2)');
             
             btnUnsend.style.display = isMyMessage ? 'block' : 'none';
             btnEdit.style.display = isMyMessage ? 'block' : 'none';
@@ -670,7 +669,6 @@
             let text = input.value.trim();
             if (!text || !currentRecipient) return;
 
-            // 編集モードの場合
             if (editingMsgId) {
                 await fetch(`${API_URL}/messages/edit`, {
                     method: 'POST',
