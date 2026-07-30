@@ -9,78 +9,61 @@ app.use(express.json());
 // フロントエンド（HTMLファイル）を公開する設定
 app.use(express.static(path.join(__dirname)));
 
-// 根元にアクセスされたら index.html を返す
 app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'index.html'));
 });
 
-// データを保存するファイルのパス
+// データ保存用ファイルパス
 const DB_FILE = path.join(__dirname, 'users.json');
+const MSG_FILE = path.join(__dirname, 'messages.json');
 
-// ユーザーデータをファイルから読み込む関数
-function loadUsers() {
+function loadData(filePath) {
     try {
-        if (fs.existsSync(DB_FILE)) {
-            const data = fs.readFileSync(DB_FILE, 'utf8');
-            return JSON.parse(data);
+        if (fs.existsSync(filePath)) {
+            return JSON.parse(fs.readFileSync(filePath, 'utf8'));
         }
     } catch (error) {
-        console.error('データの読み込みエラー:', error);
+        console.error('ファイル読み込みエラー:', error);
     }
-    return [];
+    return filePath === DB_FILE ? [] : {};
 }
 
-// ユーザーデータをファイルに保存する関数
-function saveUsers(users) {
+function saveData(filePath, data) {
     try {
-        fs.writeFileSync(DB_FILE, JSON.stringify(users, null, 2), 'utf8');
+        fs.writeFileSync(filePath, JSON.stringify(data, null, 2), 'utf8');
     } catch (error) {
-        console.error('データの保存エラー:', error);
+        console.error('ファイル保存エラー:', error);
     }
 }
 
-// 新規登録エンドポイント
+// ユーザー登録
 app.post('/api/signup', async (req, res) => {
     try {
         const { name, email, password } = req.body;
-        const users = loadUsers();
+        const users = loadData(DB_FILE);
 
-        const existingUser = users.find(u => u.email === email);
-        if (existingUser) {
+        if (users.find(u => u.email === email)) {
             return res.status(400).json({ error: 'このメールアドレスは既に登録されています。' });
         }
 
-        const saltRounds = 10;
-        const hashedPassword = await bcrypt.hash(password, saltRounds);
+        const hashedPassword = await bcrypt.hash(password, 10);
+        users.push({ name, email, password: hashedPassword });
+        saveData(DB_FILE, users);
 
-        const newUser = {
-            name,
-            email,
-            password: hashedPassword
-        };
-        
-        users.push(newUser);
-        saveUsers(users);
-
-        res.status(201).json({ message: 'アカウントが安全に作成されました。' });
+        res.status(201).json({ message: 'アカウントが作成されました。' });
     } catch (error) {
         res.status(500).json({ error: 'サーバーエラーが発生しました。' });
     }
 });
 
-// ログインエンドポイント
+// ログイン
 app.post('/api/login', async (req, res) => {
     try {
         const { email, password } = req.body;
-        const users = loadUsers();
+        const users = loadData(DB_FILE);
 
         const user = users.find(u => u.email === email);
-        if (!user) {
-            return res.status(400).json({ error: 'メールアドレスまたはパスワードが間違っています。' });
-        }
-
-        const isMatch = await bcrypt.compare(password, user.password);
-        if (!isMatch) {
+        if (!user || !(await bcrypt.compare(password, user.password))) {
             return res.status(400).json({ error: 'メールアドレスまたはパスワードが間違っています。' });
         }
 
@@ -90,11 +73,33 @@ app.post('/api/login', async (req, res) => {
     }
 });
 
+// メッセージ取得
+app.get('/api/messages', (req, res) => {
+    const messages = loadData(MSG_FILE);
+    res.status(200).json(messages);
+});
+
+// メッセージ送信
+app.post('/api/messages', (req, res) => {
+    try {
+        const { sender, text, time } = req.body;
+        const messages = loadData(MSG_FILE);
+
+        if (!messages.global) messages.global = [];
+        
+        const newMessage = { sender, text, time, read: false };
+        messages.global.push(newMessage);
+        saveData(MSG_FILE, messages);
+
+        res.status(201).json(newMessage);
+    } catch (error) {
+        res.status(500).json({ error: 'メッセージの保存に失敗しました。' });
+    }
+});
+
 const PORT = process.env.PORT || 3000;
 if (process.env.NODE_ENV !== 'production' && require.main === module) {
-    app.listen(PORT, () => {
-        console.log(`セキュアサーバーがポート${PORT}で起動しました`);
-    });
+    app.listen(PORT, () => console.log(`サーバー起動: ポート ${PORT}`));
 }
 
 module.exports = app;
