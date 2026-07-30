@@ -50,7 +50,7 @@ app.post('/api/signup', async (req, res) => {
         res.json({ success: true, message: '登録が完了しました！', user: { name: data[0].name, email: data[0].email } });
     } catch (err) {
         console.error('Signup error:', err);
-        res.status(500.json({ success: false, message: 'サーバーエラーが発生しました。' }));
+        res.status(500).json({ success: false, message: 'サーバーエラーが発生しました。' });
     }
 });
 
