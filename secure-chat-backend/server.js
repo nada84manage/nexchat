@@ -7,22 +7,12 @@ const app = express();
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// 静的ファイルの提供
 app.use(express.static(path.join(__dirname, 'public')));
 
-// Supabaseクライアントの初期化（エラーチェック付き）
 const supabaseUrl = process.env.SUPABASE_URL;
 const supabaseKey = process.env.SUPABASE_KEY;
-
-if (!supabaseUrl || !supabaseKey) {
-    console.error("CRITICAL ERROR: SUPABASE_URL or SUPABASE_KEY is missing in environment variables!");
-}
-
 const supabase = createClient(supabaseUrl || '', supabaseKey || '');
 
-// ==========================================
-// 1. ユーザー登録（サインアップ）API
-// ==========================================
 app.post('/api/signup', async (req, res) => {
     try {
         const { name, email, password } = req.body;
@@ -56,9 +46,6 @@ app.post('/api/signup', async (req, res) => {
     }
 });
 
-// ==========================================
-// 2. ログインAPI
-// ==========================================
 app.post('/api/login', async (req, res) => {
     try {
         const { email, password } = req.body;
@@ -89,9 +76,6 @@ app.post('/api/login', async (req, res) => {
     }
 });
 
-// ==========================================
-// 3. メッセージ取得API
-// ==========================================
 app.get('/api/messages', async (req, res) => {
     try {
         const { data, error } = await supabase
@@ -107,9 +91,6 @@ app.get('/api/messages', async (req, res) => {
     }
 });
 
-// ==========================================
-// 4. メッセージ送信API
-// ==========================================
 app.post('/api/messages', async (req, res) => {
     try {
         const { sender, text, time, read } = req.body;
