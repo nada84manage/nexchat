@@ -21,8 +21,10 @@
         * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Inter', sans-serif; }
         body, html { width: 100%; height: 100vh; background-color: var(--bg-dark); color: var(--text-main); overflow: hidden; }
 
-        .container { width: 100vw; height: 100vh; background: var(--bg-card); display: flex; overflow: hidden; }
-        .auth-container { width: 100%; height: 100%; display: flex; justify-content: center; align-items: center; padding: 2rem; background: var(--bg-dark); position: absolute; top: 0; left: 0; z-index: 10; }
+        .container { width: 100vw; height: 100vh; background: var(--bg-card); display: flex; overflow: hidden; position: relative; }
+
+        /* 認証画面 */
+        #authScreen { width: 100%; height: 100%; display: flex; justify-content: center; align-items: center; background: var(--bg-dark); position: absolute; top: 0; left: 0; z-index: 10; }
         .auth-box { width: 100%; max-width: 400px; background: var(--bg-card); padding: 2.5rem; border-radius: 16px; box-shadow: 0 10px 25px rgba(0,0,0,0.5); border: 1px solid var(--border); }
         .auth-header { text-align: center; margin-bottom: 2rem; }
         .auth-header h1 { font-size: 2rem; color: var(--primary); margin-bottom: 0.5rem; }
@@ -47,7 +49,7 @@
         .btn:disabled { background: var(--disabled); cursor: not-allowed; }
 
         /* チャット画面 */
-        .chat-app { width: 100vw; height: 100vh; display: none; background: var(--bg-dark); position: absolute; top: 0; left: 0; z-index: 5; }
+        #chatScreen { width: 100%; height: 100%; display: none; background: var(--bg-dark); position: absolute; top: 0; left: 0; z-index: 5; }
         .chat-layout { width: 100%; height: 100%; display: flex; }
         .sidebar { width: 320px; background: var(--bg-card); border-right: 1px solid var(--border); display: flex; flex-direction: column; }
         .user-profile { padding: 1.2rem; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; background: rgba(15, 23, 42, 0.5); }
@@ -57,20 +59,23 @@
 
         .chat-main { flex: 1; display: flex; flex-direction: column; background: var(--bg-dark); }
         .chat-header { padding: 1.2rem 1.5rem; border-bottom: 1px solid var(--border); font-weight: 600; font-size: 1.1rem; background: var(--bg-card); }
+        
         .chat-messages { flex: 1; padding: 2rem; overflow-y: auto; display: flex; flex-direction: column; gap: 1rem; }
 
-        .message-wrapper { display: flex; flex-direction: column; max-width: 60%; }
-        .message-wrapper.incoming { align-self: flex-start; }
-        .message-wrapper.outgoing { align-self: flex-end; }
+        /* LINE風メッセージのレイアウト */
+        .message-row { display: flex; align-items: flex-end; gap: 8px; max-width: 75%; }
+        .message-row.incoming { align-self: flex-start; }
+        .message-row.outgoing { align-self: flex-end; flex-direction: row-reverse; }
 
-        .message { padding: 12px 16px; border-radius: 12px; font-size: 0.95rem; line-height: 1.5; word-break: break-all; }
-        .message.incoming { background: var(--border); }
-        .message.outgoing { background: var(--primary); }
+        /* 吹き出し */
+        .message-bubble { padding: 12px 16px; border-radius: 12px; font-size: 0.95rem; line-height: 1.5; word-break: break-all; }
+        .message-row.incoming .message-bubble { background: var(--border); color: white; border-bottom-left-radius: 2px; }
+        .message-row.outgoing .message-bubble { background: var(--primary); color: white; border-bottom-right-radius: 2px; }
 
-        .message-info { font-size: 0.75rem; color: var(--text-muted); margin-top: 4px; display: flex; gap: 8px; align-items: center; }
-        .message-wrapper.outgoing .message-info { justify-content: flex-end; }
-
-        .typing-indicator { padding: 0 1.5rem 0.5rem 1.5rem; font-size: 0.8rem; color: var(--text-muted); min-height: 1.5rem; font-style: italic; background: var(--bg-card); }
+        /* メタ情報（既読・時刻）を吹き出しの左側に縦並びにする */
+        .message-meta { display: flex; flex-direction: column; align-items: flex-end; font-size: 0.7rem; color: var(--text-muted); white-space: nowrap; margin-bottom: 2px; }
+        .read-status { color: var(--primary); font-weight: 600; margin-bottom: 2px; }
+        .message-time { font-size: 0.65rem; }
 
         .chat-input-area { padding: 1.2rem 1.5rem; background: var(--bg-card); border-top: 1px solid var(--border); display: flex; gap: 12px; }
         .chat-input-area input { flex: 1; padding: 14px; border-radius: 8px; border: 1px solid var(--border); background: var(--bg-dark); color: white; font-size: 1rem; }
@@ -83,7 +88,7 @@
 <body>
 
     <div class="container">
-        <div id="authScreen" class="auth-container">
+        <div id="authScreen">
             <div class="auth-box">
                 <div class="auth-header">
                     <h1>NexChat</h1>
@@ -131,7 +136,7 @@
             </div>
         </div>
 
-        <div id="chatScreen" class="chat-app">
+        <div id="chatScreen">
             <div class="chat-layout">
                 <div class="sidebar">
                     <div class="user-profile">
@@ -154,7 +159,6 @@
                         <span>NexChat デベロッパー (公式サポート)</span>
                     </div>
                     <div class="chat-messages" id="chatMessages"></div>
-                    <div id="typingIndicator" class="typing-indicator"></div>
                     <div class="chat-input-area">
                         <input type="text" id="messageInput" placeholder="メッセージを入力..." oninput="handleInput()" onkeypress="checkEnter(event)">
                         <button id="sendBtn" class="btn" onclick="sendMessage()" style="width: 100px;" disabled>送信</button>
@@ -255,9 +259,10 @@
             document.getElementById('chatScreen').style.display = 'block';
             document.getElementById('currentUserName').innerText = userName;
             loadMessages();
+            // 3秒ごとにサーバーからメッセージを自動同期
+            setInterval(loadMessages, 3000);
         }
 
-        // メッセージを読み込む
         async function loadMessages() {
             try {
                 const response = await fetch(`${API_URL}/messages`);
@@ -271,44 +276,54 @@
 
         function renderMessages(messages) {
             const chatMessages = document.getElementById('chatMessages');
+            const isAtBottom = chatMessages.scrollHeight - chatMessages.clientHeight <= chatMessages.scrollTop + 50;
+            
             chatMessages.innerHTML = '';
             
             messages.forEach(msg => {
-                const wrapper = document.createElement('div');
                 const isMyMessage = msg.sender === currentUser.name;
-                wrapper.className = `message-wrapper ${isMyMessage ? 'outgoing' : 'incoming'}`;
+                
+                const row = document.createElement('div');
+                row.className = `message-row ${isMyMessage ? 'outgoing' : 'incoming'}`;
 
+                // 吹き出し
                 const bubble = document.createElement('div');
-                bubble.className = `message ${isMyMessage ? 'outgoing' : 'incoming'}`;
-                bubble.innerText = `${msg.sender}: ${msg.text}`;
+                bubble.className = 'message-bubble';
+                bubble.innerText = msg.text; // 名前は含めない
 
-                const info = document.createElement('div');
-                info.className = 'message-info';
-                info.innerHTML = `<span>${msg.time}</span><span>${msg.read ? '既読' : '未読'}</span>`;
+                // メタ情報（既読と時刻を縦並び）
+                const meta = document.createElement('div');
+                meta.className = 'message-meta';
+                
+                if (isMyMessage) {
+                    meta.innerHTML = `
+                        <div class="read-status">${msg.read ? '既読' : '未読'}</div>
+                        <div class="message-time">${msg.time}</div>
+                    `;
+                } else {
+                    meta.innerHTML = `
+                        <div class="message-time" style="margin-top: auto;">${msg.time}</div>
+                    `;
+                }
 
-                wrapper.appendChild(bubble);
-                wrapper.appendChild(info);
-                chatMessages.appendChild(wrapper);
+                row.appendChild(bubble);
+                row.appendChild(meta);
+                chatMessages.appendChild(row);
             });
-            chatMessages.scrollTop = chatMessages.scrollHeight;
+
+            if (isAtBottom || chatMessages.children.length <= 3) {
+                chatMessages.scrollTop = chatMessages.scrollHeight;
+            }
         }
 
-        // 入力時の処理（自分が入力中とは絶対に表示しない、空白・改行のみならボタン無効化）
         function handleInput() {
             const input = document.getElementById('messageInput');
             const sendBtn = document.getElementById('sendBtn');
-            const indicator = document.getElementById('typingIndicator');
-            const text = input.value;
-
-            // 空白や改行のみの場合は送信ボタンを無効化（灰色）
-            if (text.trim().length > 0) {
+            if (input.value.trim().length > 0) {
                 sendBtn.disabled = false;
             } else {
                 sendBtn.disabled = true;
             }
-
-            // 自分が入力しているときは自分には「入力中」と出さず、常に空にする
-            indicator.innerText = '';
         }
 
         async function sendMessage() {
@@ -319,31 +334,31 @@
             const now = new Date();
             const time = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
 
-            // 即座に入力欄をクリアしてボタンを無効化
             input.value = '';
             document.getElementById('sendBtn').disabled = true;
-            document.getElementById('typingIndicator').innerText = '';
 
-            // 即座に自分の画面に吹き出しを追加して表示（タイムラグをなくす）
+            // 即座に自分の画面に反映する（タイムラグを消すため）
             const chatMessages = document.getElementById('chatMessages');
-            const wrapper = document.createElement('div');
-            wrapper.className = 'message-wrapper outgoing';
+            const row = document.createElement('div');
+            row.className = 'message-row outgoing';
 
             const bubble = document.createElement('div');
-            bubble.className = 'message outgoing';
-            bubble.innerText = `${currentUser.name}: ${text}`;
+            bubble.className = 'message-bubble';
+            bubble.innerText = text;
 
-            const info = document.createElement('div');
-            info.className = 'message-info';
-            info.innerHTML = `<span>${time}</span><span>既読</span>`;
+            const meta = document.createElement('div');
+            meta.className = 'message-meta';
+            meta.innerHTML = `
+                <div class="read-status">既読</div>
+                <div class="message-time">${time}</div>
+            `;
 
-            wrapper.appendChild(bubble);
-            wrapper.appendChild(info);
-            chatMessages.appendChild(wrapper);
+            row.appendChild(bubble);
+            row.appendChild(meta);
+            chatMessages.appendChild(row);
             chatMessages.scrollTop = chatMessages.scrollHeight;
 
             try {
-                // サーバーへ送信
                 await fetch(`${API_URL}/messages`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
