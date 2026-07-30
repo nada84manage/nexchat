@@ -15,6 +15,7 @@
             --border: #334155;
             --error: #ef4444;
             --success: #10b981;
+            --disabled: #475569;
         }
 
         * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Inter', sans-serif; }
@@ -43,6 +44,7 @@
 
         .btn { width: 100%; padding: 12px; background: var(--primary); color: white; border: none; border-radius: 8px; font-size: 1rem; font-weight: 600; cursor: pointer; transition: 0.2s; }
         .btn:hover { background: var(--primary-hover); }
+        .btn:disabled { background: var(--disabled); cursor: not-allowed; }
 
         /* チャット画面 */
         .chat-app { display: none; width: 100vw; height: 100vh; display: flex; }
@@ -152,8 +154,8 @@
                 <div class="chat-messages" id="chatMessages"></div>
                 <div id="typingIndicator" class="typing-indicator"></div>
                 <div class="chat-input-area">
-                    <input type="text" id="messageInput" placeholder="メッセージを入力..." oninput="handleTypingInput()" onkeypress="checkEnter(event)">
-                    <button class="btn" onclick="sendMessage()" style="width: 100px;">送信</button>
+                    <input type="text" id="messageInput" placeholder="メッセージを入力..." oninput="handleInput()" onkeypress="checkEnter(event)">
+                    <button id="sendBtn" class="btn" onclick="sendMessage()" style="width: 100px;" disabled>送信</button>
                 </div>
             </div>
         </div>
@@ -162,8 +164,6 @@
     <script>
         const API_URL = '/api';
         let currentUser = null;
-        let isTyping = false;
-        let typingTimer = null;
 
         window.addEventListener('DOMContentLoaded', () => {
             const loggedInUser = localStorage.getItem('nexchat_current_session');
@@ -286,6 +286,20 @@
             }
         }
 
+        // 入力内容をチェックして空欄や改行のみなら送信ボタンを無効化（灰色）にする
+        function handleInput() {
+            const input = document.getElementById('messageInput');
+            const sendBtn = document.getElementById('sendBtn');
+            const text = input.value;
+
+            // 空白や改行のみの場合は trim() すると空文字になるため無効化
+            if (text.trim().length > 0) {
+                sendBtn.disabled = false;
+            } else {
+                sendBtn.disabled = true;
+            }
+        }
+
         async function sendMessage() {
             const input = document.getElementById('messageInput');
             const text = input.value.trim();
@@ -294,37 +308,32 @@
             const now = new Date();
             const time = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
 
+            // 入力欄を即座にクリアしてボタンを再度無効化
+            input.value = '';
+            document.getElementById('sendBtn').disabled = true;
+
             try {
+                // サーバーへ送信
                 await fetch(`${API_URL}/messages`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ sender: currentUser.name, text, time })
                 });
-                input.value = '';
-                document.getElementById('typingIndicator').innerText = '';
+                // 送信後にすぐメッセージリストを再読み込み
                 loadMessages();
             } catch (e) {
                 console.error('送信失敗', e);
             }
         }
 
-        // 自分が入力している時は自分の「入力中」は表示せず、デモとして相手（NexChat デベロッパー）の入力中表示を切り替える
-        function handleTypingInput() {
-            const input = document.getElementById('messageInput');
-            const indicator = document.getElementById('typingIndicator');
-
-            if (input.value.trim().length > 0) {
-                // 自分が入力している間は、自分の画面では「自分が入力中」とは出さず、
-                // 送信完了後などに相手側から返答が来るような演出や、デベロッパーからの返信シミュレーションをここに挟めます。
-                // 今回のご要望通り「自分が入力中とは表示しない」ようにしています。
-                indicator.innerText = '';
-            } else {
-                indicator.innerText = '';
-            }
-        }
-
         function checkEnter(event) {
-            if (event.key === 'Enter') sendMessage();
+            if (event.key === 'Enter') {
+                event.preventDefault();
+                const sendBtn = document.getElementById('sendBtn');
+                if (!sendBtn.disabled) {
+                    sendMessage();
+                }
+            }
         }
 
         function logout() {
