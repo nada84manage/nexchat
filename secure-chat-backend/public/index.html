@@ -3,8 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>NexChat - Ultimate Edition</title>
+    <title>NexChat</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
     <style>
         :root {
             --primary: #6366f1;
@@ -57,7 +58,7 @@
         .user-profile { padding: 1.2rem; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; background: rgba(15, 23, 42, 0.5); }
         
         .sidebar-actions { padding: 10px 15px; display: flex; gap: 8px; border-bottom: 1px solid var(--border); background: var(--bg-card); }
-        .sidebar-actions button { flex: 1; padding: 8px; font-size: 0.8rem; background: var(--border); color: white; border: none; border-radius: 6px; cursor: pointer; }
+        .sidebar-actions button { flex: 1; padding: 8px; font-size: 0.8rem; background: var(--border); color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 500; }
         .sidebar-actions button:hover { background: var(--primary); }
 
         .room-list { flex: 1; overflow-y: auto; }
@@ -104,7 +105,7 @@
         .no-chat-selected { margin: auto; color: var(--text-muted); text-align: center; font-size: 1.1rem; }
 
         .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); display: none; justify-content: center; align-items: center; z-index: 100; }
-        .modal-box { background: var(--bg-card); width: 380px; padding: 25px; border-radius: 12px; border: 1px solid var(--border); text-align: center; }
+        .modal-box { background: var(--bg-card); width: 400px; padding: 25px; border-radius: 12px; border: 1px solid var(--border); text-align: center; }
         .modal-box h3 { margin-bottom: 15px; font-size: 1.1rem; text-align: left; }
     </style>
 </head>
@@ -115,7 +116,7 @@
             <div class="auth-box">
                 <div class="auth-header">
                     <h1>NexChat</h1>
-                    <p style="color: var(--text-muted);">フル機能DMシステム</p>
+                    <p style="color: var(--text-muted);">チャットシステム</p>
                 </div>
                 <div class="tabs">
                     <div class="tab active" onclick="switchTab('login')">ログイン</div>
@@ -140,7 +141,7 @@
 
                 <form id="signupForm" style="display: none;" onsubmit="handleSignup(event)">
                     <div class="form-group">
-                        <label>ユーザー名</label>
+                        <label>ユーザー名 (一意)</label>
                         <input type="text" id="signupName" required placeholder="山田 太郎">
                     </div>
                     <div class="form-group">
@@ -174,51 +175,60 @@
                         <button class="logout-btn" onclick="logout()">ログアウト</button>
                     </div>
                     <div class="sidebar-actions">
-                        <button onclick="openMyQrModal()">🪪 マイQR</button>
-                        <button onclick="openAddFriendModal()">➕ フレンド追加</button>
+                        <button onclick="openMyQrModal()">マイQR</button>
+                        <button onclick="openScannerModal()">QR読取</button>
+                        <button onclick="openAddFriendModal()">手動追加</button>
                     </div>
                     <div class="room-list" id="roomList"></div>
                 </div>
                 
                 <div class="chat-main" id="chatMainArea">
-                    <div class="no-chat-selected">左側のユーザーまたはKeepメモを選択してチャットを開始</div>
+                    <div class="no-chat-selected">ユーザーまたはKeepメモを選択してください</div>
                 </div>
             </div>
         </div>
     </div>
 
     <div id="msgMenu" class="msg-menu">
-        <button onclick="menuActionReply()">💬 返信</button>
-        <button onclick="menuActionEdit()">✏️ 編集する</button>
-        <button onclick="menuActionCopy()">📋 コピー</button>
-        <button onclick="menuActionForwardModal()">↗️ 転送</button>
-        <button id="menuUnsend" onclick="menuActionUnsend()">↩️ 送信を取り消す</button>
-        <button onclick="menuActionDeleteLocal()">🗑️ 削除（自分の端末のみ）</button>
-        <button onclick="menuActionAnnouncement()">📢 アナウンスに設定</button>
+        <button onclick="menuActionReply()">返信</button>
+        <button onclick="menuActionEdit()">編集</button>
+        <button onclick="menuActionCopy()">コピー</button>
+        <button onclick="menuActionForwardModal()">転送</button>
+        <button id="menuUnsend" onclick="menuActionUnsend()">送信取り消し</button>
+        <button onclick="menuActionDeleteLocal()">削除 (この端末のみ)</button>
+        <button onclick="menuActionAnnouncement()">アナウンス設定</button>
     </div>
 
     <div id="forwardModal" class="modal-overlay" onclick="closeModal('forwardModal')">
         <div class="modal-box" onclick="event.stopPropagation()">
-            <h3>メッセージの転送先を選択</h3>
-            <div id="forwardTargetList" style="max-height: 200px; overflow-y: auto; text-align: left;"></div>
-            <button class="btn" style="margin-top: 15px; background: var(--border);" onclick="closeModal('forwardModal')">キャンセル</button>
+            <h3>転送先を選択</h3>
+            <div id="forwardTargetList" style="max-height: 200px; overflow-y: auto; text-align: left; margin-bottom: 15px;"></div>
+            <button class="btn" style="background: var(--border);" onclick="closeModal('forwardModal')">キャンセル</button>
         </div>
     </div>
 
     <div id="myQrModal" class="modal-overlay" onclick="closeModal('myQrModal')">
         <div class="modal-box" onclick="event.stopPropagation()">
             <h3>マイQRコード</h3>
-            <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 15px;">このQRコードを相手に読み込んでもらおう</p>
+            <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 15px;">このQRコードを相手に読み込んでもらいます</p>
             <div id="qrcodeContainer" style="display: flex; justify-content: center; background: white; padding: 15px; border-radius: 8px; margin-bottom: 15px;"></div>
             <button class="btn" style="background: var(--border);" onclick="closeModal('myQrModal')">閉じる</button>
         </div>
     </div>
 
+    <div id="scannerModal" class="modal-overlay" onclick="closeScannerModal()">
+        <div class="modal-box" onclick="event.stopPropagation()">
+            <h3>QRコードをスキャン</h3>
+            <div id="reader" style="width: 100%; margin-bottom: 15px;"></div>
+            <button class="btn" style="background: var(--border);" onclick="closeScannerModal()">閉じる</button>
+        </div>
+    </div>
+
     <div id="addFriendModal" class="modal-overlay" onclick="closeModal('addFriendModal')">
         <div class="modal-box" onclick="event.stopPropagation()">
-            <h3>フレンドを追加</h3>
+            <h3>フレンド追加</h3>
             <div class="form-group" style="text-align: left; margin-top: 15px;">
-                <label>追加するユーザー名</label>
+                <label>ユーザー名</label>
                 <input type="text" id="friendNameInput" placeholder="正確なユーザー名を入力">
             </div>
             <button class="btn" onclick="submitAddFriend()">追加する</button>
@@ -238,6 +248,7 @@
         let replyingToText = null;
         let editingMsgId = null;
         let lastTypingSent = 0;
+        let html5QrCodeScanner = null;
 
         window.addEventListener('DOMContentLoaded', () => {
             const loggedInUser = localStorage.getItem('nexchat_current_session');
@@ -297,7 +308,7 @@
                 if (!response.ok) throw new Error(data.message || '登録に失敗しました');
 
                 statusEl.className = 'msg-box success';
-                statusEl.innerText = '登録成功！ログインしてください。';
+                statusEl.innerText = '登録成功しました。ログインしてください。';
                 setTimeout(() => switchTab('login'), 1500);
             } catch (error) {
                 statusEl.className = 'msg-box error';
@@ -348,10 +359,10 @@
                 keepItem.className = 'room-item';
                 if (currentRecipient === currentUser.name) keepItem.classList.add('active');
                 keepItem.innerHTML = `
-                    <div class="avatar keep">Keep</div>
+                    <div class="avatar keep">保存</div>
                     <div>
                         <div style="font-weight: 600;">Keepメモ</div>
-                        <div style="font-size: 0.8rem; color: var(--text-muted);">自分専用の保存用スペース</div>
+                        <div style="font-size: 0.8rem; color: var(--text-muted);">自分専用スペース</div>
                     </div>
                 `;
                 keepItem.onclick = () => selectUser(currentUser.name);
@@ -391,21 +402,21 @@
             });
 
             const mainArea = document.getElementById('chatMainArea');
-            const titleText = recipientName === currentUser.name ? 'Keepメモ (自分専用)' : `${recipientName} とのチャット`;
+            const titleText = recipientName === currentUser.name ? 'Keepメモ' : `${recipientName} とのチャット`;
             
             mainArea.innerHTML = `
                 <div class="chat-header">
                     <div>
                         <span>${titleText}</span>
-                        <span id="typingIndicator" class="typing-indicator"> ✏️ 入力中...</span>
+                        <span id="typingIndicator" class="typing-indicator"> 入力中...</span>
                     </div>
                 </div>
                 <div id="announcementBanner" class="announcement-banner">
-                    <span>📢 アナウンス: <span id="announcementText"></span></span>
+                    <span>アナウンス: <span id="announcementText"></span></span>
                 </div>
                 <div class="chat-messages" id="chatMessages"></div>
                 <div id="replyPreviewBar" class="reply-preview-bar">
-                    <span id="replyPreviewText">返信中: ...</span>
+                    <span id="replyPreviewText">返信中...</span>
                     <button onclick="cancelReplyOrEdit()">✕ 終了</button>
                 </div>
                 <div class="chat-input-area">
@@ -506,7 +517,7 @@
             const banner = document.getElementById('announcementBanner');
             const bannerText = document.getElementById('announcementText');
             if (latestAnnouncement && banner && bannerText) {
-                bannerText.innerText = latestAnnouncement;
+                bannerText.innerText = latestAnnouncement.replace('[アナウンス] ', '');
                 banner.style.display = 'flex';
             } else if (banner) {
                 banner.style.display = 'none';
@@ -536,11 +547,11 @@
 
         function menuActionReply() {
             document.getElementById('msgMenu').style.display = 'none';
-            replyingToText = `[返信元のメッセージ] "${activeMsgText}"\n`;
+            replyingToText = `[返信] "${activeMsgText}"\n`;
             editingMsgId = null;
             
             const bar = document.getElementById('replyPreviewBar');
-            document.getElementById('replyPreviewText').innerText = `返信中: "${activeMsgText}"`;
+            document.getElementById('replyPreviewText').innerText = `返信: "${activeMsgText}"`;
             bar.style.display = 'flex';
             document.getElementById('messageInput').focus();
         }
@@ -554,10 +565,10 @@
             input.value = activeMsgText;
             input.focus();
             document.getElementById('sendBtn').disabled = false;
-            document.getElementById('sendBtn').innerText = '編集';
+            document.getElementById('sendBtn').innerText = '保存';
 
             const bar = document.getElementById('replyPreviewBar');
-            document.getElementById('replyPreviewText').innerText = `メッセージを編集中...`;
+            document.getElementById('replyPreviewText').innerText = 'メッセージ編集中';
             bar.style.display = 'flex';
         }
 
@@ -571,7 +582,7 @@
 
         function menuActionCopy() {
             document.getElementById('msgMenu').style.display = 'none';
-            navigator.clipboard.writeText(activeMsgText).then(() => alert('コピーしました！'));
+            navigator.clipboard.writeText(activeMsgText).then(() => alert('コピーしました'));
         }
 
         async function menuActionForwardModal() {
@@ -584,17 +595,15 @@
                 const friends = await response.json();
 
                 const keepDiv = document.createElement('div');
-                keepDiv.className = 'forward-target-item';
                 keepDiv.style.cssText = 'padding: 10px; cursor: pointer; border-bottom: 1px solid var(--border);';
-                keepDiv.innerText = '📁 Keepメモ (自分)';
+                keepDiv.innerText = 'Keepメモ';
                 keepDiv.onclick = () => executeForward(currentUser.name);
                 targetList.appendChild(keepDiv);
 
                 friends.forEach(fName => {
                     const div = document.createElement('div');
-                    div.className = 'forward-target-item';
                     div.style.cssText = 'padding: 10px; cursor: pointer; border-bottom: 1px solid var(--border);';
-                    div.innerText = `👤 ${fName}`;
+                    div.innerText = fName;
                     div.onclick = () => executeForward(fName);
                     targetList.appendChild(div);
                 });
@@ -614,9 +623,9 @@
             await fetch(`${API_URL}/messages`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ sender: currentUser.name, recipient: targetRecipient, text: `[転送メッセージ]\n${activeMsgText}`, time })
+                body: JSON.stringify({ sender: currentUser.name, recipient: targetRecipient, text: `[転送]\n${activeMsgText}`, time })
             });
-            alert('転送しました！');
+            alert('転送しました');
         }
 
         async function menuActionUnsend() {
@@ -716,6 +725,48 @@
                 height: 180
             });
             document.getElementById('myQrModal').style.display = 'flex';
+        }
+
+        // カメラを使ったQRコード読み取り機能
+        function openScannerModal() {
+            document.getElementById('scannerModal').style.display = 'flex';
+            html5QrCodeScanner = new Html5QrcodeScanner("reader", { fps: 10, qrbox: 250 });
+            html5QrCodeScanner.render(onScanSuccess, onScanError);
+        }
+
+        function closeScannerModal() {
+            if (html5QrCodeScanner) {
+                html5QrCodeScanner.clear().catch(error => {
+                    console.error("スキャナー停止エラー", error);
+                });
+            }
+            document.getElementById('scannerModal').style.display = 'none';
+        }
+
+        async function onScanSuccess(decodedText) {
+            // スキャン成功したらスキャナーを閉じてフレンド追加APIを呼ぶ
+            closeScannerModal();
+            const targetName = decodedText.trim();
+            if (!targetName) return;
+
+            try {
+                const response = await fetch(`${API_URL}/friends/add`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ myName: currentUser.name, targetName })
+                });
+                const data = await response.json();
+                alert(data.message);
+                if (data.success) {
+                    loadUsers();
+                }
+            } catch (e) {
+                alert('追加に失敗しました');
+            }
+        }
+
+        function onScanError(errorMessage) {
+            // 読み取り中の微小なエラーは無視
         }
 
         function openAddFriendModal() {
