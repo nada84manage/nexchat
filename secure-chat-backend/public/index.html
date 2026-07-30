@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>NexChat</title>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
     <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
     <style>
         :root {
@@ -88,7 +88,6 @@
         .message-row.incoming .message-bubble { background: var(--border); color: white; border-bottom-left-radius: 2px; }
         .message-row.outgoing .message-bubble { background: var(--primary); color: white; border-bottom-right-radius: 2px; }
 
-        /* LINE風返信ブロックのスタイル */
         .reply-box { background: rgba(0, 0, 0, 0.2); border-left: 3px solid white; padding: 6px 10px; border-radius: 4px; margin-bottom: 6px; font-size: 0.85rem; cursor: pointer; opacity: 0.85; }
         .reply-box:hover { opacity: 1; }
         .reply-sender { font-weight: bold; font-size: 0.75rem; margin-bottom: 2px; }
@@ -117,7 +116,44 @@
         .modal-box { background: var(--bg-card); width: 400px; max-width: 90%; padding: 25px; border-radius: 12px; border: 1px solid var(--border); text-align: center; }
         .modal-box h3 { margin-bottom: 15px; font-size: 1.1rem; text-align: left; }
 
-        /* スマホ対応（画面幅768px以下） */
+        /* スマホ用全画面カメラモーダル */
+        #scannerModal {
+            padding: 0;
+            background: black;
+        }
+        #scannerModal .modal-box {
+            width: 100%;
+            height: 100%;
+            max-width: 100%;
+            max-height: 100%;
+            border-radius: 0;
+            border: none;
+            background: black;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            padding: 20px;
+        }
+        #reader {
+            width: 100% !important;
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            border: none !important;
+        }
+        #reader video {
+            width: 100% !important;
+            height: 100% !important;
+            object-fit: cover !important;
+            border-radius: 12px;
+        }
+        /* html5-qrcodeの余分な枠やテキストを隠す */
+        #reader__dashboard_section_csr span, #reader__dashboard_section_swaplink {
+            display: none !important;
+        }
+
         @media (max-width: 768px) {
             .sidebar { width: 100%; display: flex; }
             .chat-main { display: none; width: 100%; position: absolute; top: 0; left: 0; z-index: 10; }
@@ -228,7 +264,9 @@
         <div class="modal-box" onclick="event.stopPropagation()">
             <h3>マイQRコード</h3>
             <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 15px;">このQRコードを相手に読み込んでもらいます</p>
-            <div id="qrcodeContainer" style="display: flex; justify-content: center; background: white; padding: 15px; border-radius: 8px; margin-bottom: 15px;"></div>
+            <div style="display: flex; justify-content: center; margin-bottom: 15px;">
+                <div id="qrcodeContainer" style="background: white; padding: 15px; border-radius: 8px; display: inline-block;"></div>
+            </div>
             <button class="btn" style="margin-bottom: 10px; background: var(--primary);" onclick="generateMyQr()">QRコードを更新</button>
             <button class="btn" style="background: var(--border);" onclick="closeModal('myQrModal')">閉じる</button>
         </div>
@@ -236,9 +274,12 @@
 
     <div id="scannerModal" class="modal-overlay" onclick="closeScannerModal()">
         <div class="modal-box" onclick="event.stopPropagation()">
-            <h3>QRコードをスキャン</h3>
-            <div id="reader" style="width: 100%; margin-bottom: 15px;"></div>
-            <button class="btn" style="background: var(--border);" onclick="closeScannerModal()">閉じる</button>
+            <div style="display: flex; justify-content: space-between; align-items: center; color: white;">
+                <h3 style="margin: 0;">QRコードスキャナー</h3>
+                <button onclick="closeScannerModal()" style="background: transparent; border: none; color: white; font-size: 1.2rem; cursor: pointer;">✕ 閉じる</button>
+            </div>
+            <div id="reader"></div>
+            <p style="font-size: 0.8rem; color: var(--text-muted); text-align: center;">カメラをQRコードに向けてください</p>
         </div>
     </div>
 
@@ -256,7 +297,7 @@
         let replyingToText = null;
         let editingMsgId = null;
         let lastTypingSent = 0;
-        let html5QrCodeScanner = null;
+        let html5QrCode = null;
 
         window.addEventListener('DOMContentLoaded', () => {
             const loggedInUser = localStorage.getItem('nexchat_current_session');
@@ -266,7 +307,6 @@
             }
             window.onclick = () => { document.getElementById('msgMenu').style.display = 'none'; };
             
-            // ブラウザ標準の右クリックメニューを完全無効化
             window.addEventListener('contextmenu', (e) => {
                 e.preventDefault();
             });
@@ -367,7 +407,6 @@
                 const roomList = document.getElementById('roomList');
                 roomList.innerHTML = '';
 
-                // Keepメモ
                 const keepItem = document.createElement('div');
                 keepItem.className = 'room-item';
                 if (currentRecipient === currentUser.name) keepItem.classList.add('active');
@@ -405,7 +444,6 @@
             currentRecipient = recipientName;
             cancelReplyOrEdit();
             
-            // スマホ表示の切り替えクラス追加
             document.getElementById('mainContainer').classList.add('mobile-chat-active');
 
             const roomListItems = document.querySelectorAll('.room-item');
@@ -504,7 +542,15 @@
 
             messages.forEach(msg => {
                 if (hiddenMessages.includes(msg.id)) return;
-                if (msg.is_announcement) latestAnnouncement = msg.text;
+                
+                if (msg.is_announcement) {
+                    const cleanAnnouncementText = msg.text.replace('[アナウンス]', '').trim();
+                    if (cleanAnnouncementText !== '') {
+                        latestAnnouncement = cleanAnnouncementText;
+                    } else {
+                        latestAnnouncement = null;
+                    }
+                }
 
                 const isMyMessage = msg.sender === currentUser.name;
                 const row = document.createElement('div');
@@ -514,7 +560,6 @@
                 const bubble = document.createElement('div');
                 bubble.className = 'message-bubble';
 
-                // 返信データが含まれている場合の処理 (JSON形式で保持していると想定、または構造化テキスト)
                 let displayMainText = msg.text;
                 if (msg.reply_to_id && msg.reply_to_text) {
                     const replyBox = document.createElement('div');
@@ -523,17 +568,15 @@
                         <div class="reply-sender">${escapeHtml(msg.reply_to_sender)}</div>
                         <div class="reply-text">${escapeHtml(msg.reply_to_text)}</div>
                     `;
-                    // 返信元をクリックしたらそのメッセージにスクロールジャンプ
                     replyBox.onclick = (e) => {
                         e.stopPropagation();
                         scrollToMessage(msg.reply_to_id);
                     };
                     bubble.appendChild(replyBox);
                     
-                    // 本体テキストから返信プレフィックスを除外して純粋なテキストを表示
                     if (displayMainText.startsWith('[返信]')) {
                         const lines = displayMainText.split('\n');
-                        lines.splice(0, 2); // 返信ヘッダー部分をカット
+                        lines.splice(0, 2);
                         displayMainText = lines.join('\n');
                     }
                 }
@@ -542,7 +585,6 @@
                 textSpan.innerText = displayMainText;
                 bubble.appendChild(textSpan);
 
-                // 右クリックイベントでメニューを開く
                 bubble.oncontextmenu = (e) => {
                     e.preventDefault();
                     e.stopPropagation();
@@ -570,7 +612,7 @@
             const banner = document.getElementById('announcementBanner');
             const bannerText = document.getElementById('announcementText');
             if (latestAnnouncement && banner && bannerText) {
-                bannerText.innerText = latestAnnouncement.replace('[アナウンス] ', '');
+                bannerText.innerText = latestAnnouncement;
                 banner.style.display = 'flex';
             } else if (banner) {
                 banner.style.display = 'none';
@@ -609,7 +651,6 @@
             btnUnsend.style.display = isMyMessage ? 'block' : 'none';
             btnEdit.style.display = isMyMessage ? 'block' : 'none';
 
-            // 画面外にはみ出ないように位置を調整
             let posX = e.clientX;
             let posY = e.clientY;
             if (posX + 160 > window.innerWidth) posX = window.innerWidth - 170;
@@ -713,7 +754,6 @@
             alert('転送しました');
         }
 
-        // 警告つき送信取り消し
         function confirmUnsend() {
             document.getElementById('msgMenu').style.display = 'none';
             if (confirm('本当にこのメッセージの送信を取り消しますか？')) {
@@ -730,7 +770,6 @@
             loadMessages();
         }
 
-        // 警告つき削除（削除という言葉は警告文にのみ含める）
         function confirmDeleteLocal() {
             document.getElementById('msgMenu').style.display = 'none';
             if (confirm('本当にこのメッセージを削除しますか？')) {
@@ -755,7 +794,6 @@
         async function clearAnnouncement() {
             const now = new Date();
             const time = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
-            // 空のアナウンスを送信して上書き解除する仕組み
             await fetch(`${API_URL}/messages`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -780,14 +818,11 @@
             }
         }
 
-        // Shift+Enter対応キーチェック
         function checkKey(event) {
             if (event.key === 'Enter') {
                 if (event.shiftKey) {
-                    // Shift + Enter の場合は改行を許可（デフォルト動作）
                     return;
                 } else {
-                    // Enter のみの場合は送信
                     event.preventDefault();
                     const sendBtn = document.getElementById('sendBtn');
                     if (sendBtn && !sendBtn.disabled) sendMessage();
@@ -837,28 +872,61 @@
         }
 
         function openMyQrModal() {
-            generateMyQr();
             document.getElementById('myQrModal').style.display = 'flex';
+            generateMyQr();
         }
 
         function generateMyQr() {
             const container = document.getElementById('qrcodeContainer');
             container.innerHTML = '';
             const qrData = `${currentUser.name}_${Date.now()}`;
-            new QRCode(container, { text: qrData, width: 180, height: 180 });
+            try {
+                new QRCode(container, {
+                    text: qrData,
+                    width: 180,
+                    height: 180,
+                    colorDark: "#000000",
+                    colorLight: "#ffffff",
+                    correctLevel: QRCode.CorrectLevel.H
+                });
+            } catch (e) {
+                console.error("QRコード生成エラー:", e);
+            }
         }
 
+        // 押した瞬間にカメラが全画面で開くように修正
         function openScannerModal() {
             document.getElementById('scannerModal').style.display = 'flex';
-            html5QrCodeScanner = new Html5QrcodeScanner("reader", { fps: 10, qrbox: 250 });
-            html5QrCodeScanner.render(onScanSuccess, onScanError);
+            
+            // 少し遅延を入れて要素（#reader）のレンダリング完了を確実にしてからカメラ起動
+            setTimeout(() => {
+                if (!html5QrCode) {
+                    html5QrCode = new Html5Qrcode("reader");
+                }
+                const config = { fps: 10, qrbox: { width: 250, height: 250 } };
+                html5QrCode.start(
+                    { facingMode: "environment" }, 
+                    config, 
+                    onScanSuccess, 
+                    (errorMessage) => {}
+                ).catch(err => {
+                    console.error("カメラ起動失敗:", err);
+                    alert("カメラを起動できませんでした。権限を確認してください。");
+                    closeScannerModal();
+                });
+            }, 50);
         }
 
         function closeScannerModal() {
-            if (html5QrCodeScanner) {
-                html5QrCodeScanner.clear().catch(error => { console.error(error); });
+            if (html5QrCode) {
+                html5QrCode.stop().then(() => {
+                    document.getElementById('scannerModal').style.display = 'none';
+                }).catch(err => {
+                    document.getElementById('scannerModal').style.display = 'none';
+                });
+            } else {
+                document.getElementById('scannerModal').style.display = 'none';
             }
-            document.getElementById('scannerModal').style.display = 'none';
         }
 
         async function onScanSuccess(decodedText) {
@@ -887,8 +955,6 @@
                 alert('追加に失敗しました');
             }
         }
-
-        function onScanError(errorMessage) {}
 
         function logout() {
             localStorage.removeItem('nexchat_current_session');
