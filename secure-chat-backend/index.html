@@ -36,7 +36,7 @@
         .form-group input { width: 100%; padding: 12px 65px 12px 12px; border-radius: 8px; border: 1px solid var(--border); background: var(--bg-dark); color: white; font-size: 1rem; }
         .form-group input:focus { outline: none; border-color: var(--primary); }
 
-        .toggle-password { position: absolute; right: 8px; background: var(--border); border: none; color: var(--text-muted); cursor: pointer; font-size: 0.75font-weight: 600; padding: 6px 10px; border-radius: 6px; }
+        .toggle-password { position: absolute; right: 8px; background: var(--border); border: none; color: var(--text-muted); cursor: pointer; font-size: 0.75rem; font-weight: 600; padding: 6px 10px; border-radius: 6px; }
         .msg-box { font-size: 0.85rem; margin-bottom: 1rem; text-align: center; min-height: 1.2rem; }
         .error { color: var(--error); }
         .success { color: var(--success); }
@@ -152,7 +152,7 @@
                 <div class="chat-messages" id="chatMessages"></div>
                 <div id="typingIndicator" class="typing-indicator"></div>
                 <div class="chat-input-area">
-                    <input type="text" id="messageInput" placeholder="メッセージを入力..." oninput="notifyTyping()" onkeypress="checkEnter(event)">
+                    <input type="text" id="messageInput" placeholder="メッセージを入力..." oninput="handleTypingInput()" onkeypress="checkEnter(event)">
                     <button class="btn" onclick="sendMessage()" style="width: 100px;">送信</button>
                 </div>
             </div>
@@ -162,7 +162,8 @@
     <script>
         const API_URL = '/api';
         let currentUser = null;
-        let typingTimeout = null;
+        let isTyping = false;
+        let typingTimer = null;
 
         window.addEventListener('DOMContentLoaded', () => {
             const loggedInUser = localStorage.getItem('nexchat_current_session');
@@ -251,7 +252,7 @@
             document.getElementById('chatScreen').style.display = 'flex';
             document.getElementById('currentUserName').innerText = userName;
             loadMessages();
-            setInterval(loadMessages, 3000); // 3秒ごとに新着メッセージと既読状態を同期
+            setInterval(loadMessages, 3000);
         }
 
         async function loadMessages() {
@@ -300,21 +301,26 @@
                     body: JSON.stringify({ sender: currentUser.name, text, time })
                 });
                 input.value = '';
+                document.getElementById('typingIndicator').innerText = '';
                 loadMessages();
             } catch (e) {
                 console.error('送信失敗', e);
             }
         }
 
-        // 入力中シミュレーション（簡易的にデベロッパーからの入力中を演出）
-        function notifyTyping() {
+        // 自分が入力している時は自分の「入力中」は表示せず、デモとして相手（NexChat デベロッパー）の入力中表示を切り替える
+        function handleTypingInput() {
+            const input = document.getElementById('messageInput');
             const indicator = document.getElementById('typingIndicator');
-            indicator.innerText = 'NexChat デベロッパーが入力中...';
-            
-            clearTimeout(typingTimeout);
-            typingTimeout = setTimeout(() => {
+
+            if (input.value.trim().length > 0) {
+                // 自分が入力している間は、自分の画面では「自分が入力中」とは出さず、
+                // 送信完了後などに相手側から返答が来るような演出や、デベロッパーからの返信シミュレーションをここに挟めます。
+                // 今回のご要望通り「自分が入力中とは表示しない」ようにしています。
                 indicator.innerText = '';
-            }, 2000);
+            } else {
+                indicator.innerText = '';
+            }
         }
 
         function checkEnter(event) {
