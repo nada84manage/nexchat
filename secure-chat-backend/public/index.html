@@ -297,6 +297,7 @@
         let editingMsgId = null;
         let lastTypingSent = 0;
         let html5QrCode = null;
+        let currentMessagesCache = []; // 即時表示用のローカルキャッシュ
 
         window.addEventListener('DOMContentLoaded', () => {
             const loggedInUser = localStorage.getItem('nexchat_current_session');
@@ -442,6 +443,7 @@
         function selectUser(recipientName) {
             currentRecipient = recipientName;
             cancelReplyOrEdit();
+            currentMessagesCache = []; // ルーム切り替え時にキャッシュクリア
             
             document.getElementById('mainContainer').classList.add('mobile-chat-active');
 
@@ -474,7 +476,7 @@
                     <button onclick="cancelReplyOrEdit()">✕ 終了</button>
                 </div>
                 <div class="chat-input-area">
-                    <textarea id="messageInput" placeholder="メッセージを入力... (Shift+Enterで改行)" oninput="handleInput()" onkeydown="checkKey(event)"></textarea>
+                    <textarea id="messageInput" placeholder="メッセージを入力" oninput="handleInput()" onkeydown="checkKey(event)"></textarea>
                     <button id="sendBtn" class="btn" onclick="sendMessage()" style="width: 100px; height: 48px;" disabled>送信</button>
                 </div>
             `;
@@ -501,6 +503,7 @@
                 const response = await fetch(`${API_URL}/messages?user1=${encodeURIComponent(currentUser.name)}&user2=${encodeURIComponent(currentRecipient)}`);
                 const messages = await response.json();
                 if (Array.isArray(messages)) {
+                    currentMessagesCache = messages;
                     renderMessages(messages);
                     markAsRead();
                 }
@@ -542,13 +545,13 @@
             messages.forEach(msg => {
                 if (hiddenMessages.includes(msg.id)) return;
                 
-                // アナウンスの厳密な判定（is_announcementフラグを持つもののみ対象）
+                // アナウンスの厳密な判定：is_announcementフラグがtrueのものだけ処理
                 if (msg.is_announcement) {
-                    const cleanAnnouncementText = msg.text.replace('[アナウンス]', '').trim();
+                    const cleanAnnouncementText = msg.text.trim();
                     if (cleanAnnouncementText !== '') {
                         latestAnnouncement = cleanAnnouncementText;
                     } else {
-                        latestAnnouncement = null; // 解除時はリセット
+                        latestAnnouncement = null; // 空文字（解除）の場合は非表示にする
                     }
                 }
 
@@ -751,7 +754,7 @@
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ sender: currentUser.name, recipient: targetRecipient, text: `[転送]\n${activeMsgText}`, time })
             });
-            alert('転送しました');
+            loadMessages();
         }
 
         function confirmUnsend() {
@@ -783,10 +786,12 @@
             document.getElementById('msgMenu').style.display = 'none';
             const now = new Date();
             const time = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+            
+            // アナウンス専用データとして送信（通常のチャット欄にはメッセージとして出さないようにサーバー/データベース側で調整、またはフラグ管理）
             await fetch(`${API_URL}/messages`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ sender: currentUser.name, recipient: currentRecipient, text: `[アナウンス] ${activeMsgText}`, time, is_announcement: true })
+                body: JSON.stringify({ sender: currentUser.name, recipient: currentRecipient, text: activeMsgText, time, is_announcement: true })
             });
             loadMessages();
         }
@@ -794,10 +799,12 @@
         async function clearAnnouncement() {
             const now = new Date();
             const time = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+            
+            // 解除時は中身を空文字にする
             await fetch(`${API_URL}/messages`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ sender: currentUser.name, recipient: currentRecipient, text: `[アナウンス] `, time, is_announcement: true })
+                body: JSON.stringify({ sender: currentUser.name, recipient: currentRecipient, text: "", time, is_announcement: true })
             });
             loadMessages();
         }
@@ -846,11 +853,14 @@
                 return;
             }
 
+            const now = new Date();
+            const timeStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+
             let payload = {
                 sender: currentUser.name,
                 recipient: currentRecipient,
                 text,
-                time: `${String(new Date().getHours()).padStart(2, '0')}:${String(new Date().getMinutes()).padStart(2, '0')}`
+                time: timeStr
             };
 
             if (replyingToId) {
@@ -863,6 +873,22 @@
             input.value = '';
             document.getElementById('sendBtn').disabled = true;
 
+            // 即時表示用：仮のメッセージをキャッシュに追加して描画を高速化
+            const tempMsg = {
+                id: 'temp_' + Date.now(),
+                sender: currentUser.name,
+                recipient: currentRecipient,
+                text: payload.text,
+                time: timeStr,
+                is_read: currentRecipient === currentUser.name,
+                reply_to_id: payload.reply_to_id,
+                reply_to_sender: payload.reply_to_sender,
+                reply_to_text: payload.reply_to_text
+            };
+            currentMessagesCache.push(tempMsg);
+            renderMessages(currentMessagesCache);
+
+            // サーバーへ送信
             await fetch(`${API_URL}/messages`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -873,8 +899,8 @@
 
         function openMyQrModal() {
             document.getElementById('myQrModal').style.display = 'flex';
-            // モーダル表示後に確実に描画されるよう少しだけ遅延させる
-            setTimeout(generateMyQr, 50);
+            // モーダルが完全に表示されてからQRコードを生成する（白くなるのを防止）
+            setTimeout(generateMyQr, 100);
         }
 
         function generateMyQr() {
