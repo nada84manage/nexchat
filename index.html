@@ -1,0 +1,553 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NexChat - Secure Edition</title>
+    <style>
+        :root {
+            --primary: #6366f1;
+            --primary-hover: #4f46e5;
+            --bg-dark: #0f172a;
+            --bg-card: #1e293b;
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+            --border: #334155;
+            --error: #ef4444;
+            --success: #10b981;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Inter', system-ui, -apple-system, sans-serif;
+        }
+
+        body, html {
+            width: 100%;
+            height: 100vh;
+            background-color: var(--bg-dark);
+            color: var(--text-main);
+            overflow: hidden;
+        }
+
+        .container {
+            width: 100vw;
+            height: 100vh;
+            background: var(--bg-card);
+            display: flex;
+            overflow: hidden;
+        }
+
+        /* 認証画面 */
+        .auth-container {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 2rem;
+            background: var(--bg-dark);
+        }
+
+        .auth-box {
+            width: 100%;
+            max-width: 400px;
+            background: var(--bg-card);
+            padding: 2.5rem;
+            border-radius: 16px;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
+            border: 1px solid var(--border);
+        }
+
+        .auth-header {
+            text-align: center;
+            margin-bottom: 2rem;
+        }
+
+        .auth-header h1 {
+            font-size: 2rem;
+            color: var(--primary);
+            margin-bottom: 0.5rem;
+        }
+
+        .tabs {
+            display: flex;
+            margin-bottom: 1.5rem;
+            background: var(--bg-dark);
+            border-radius: 8px;
+            padding: 4px;
+        }
+
+        .tab {
+            flex: 1;
+            text-align: center;
+            padding: 10px;
+            cursor: pointer;
+            border-radius: 6px;
+            font-weight: 600;
+            color: var(--text-muted);
+            transition: 0.2s;
+        }
+
+        .tab.active {
+            background: var(--primary);
+            color: white;
+        }
+
+        .form-group {
+            margin-bottom: 1.2rem;
+            position: relative;
+        }
+
+        .form-group label {
+            display: block;
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            margin-bottom: 0.4rem;
+        }
+
+        .input-wrapper {
+            position: relative;
+            display: flex;
+            align-items: center;
+        }
+
+        .form-group input {
+            width: 100%;
+            padding: 12px 65px 12px 12px;
+            border-radius: 8px;
+            border: 1px solid var(--border);
+            background: var(--bg-dark);
+            color: white;
+            font-size: 1rem;
+        }
+
+        .form-group input:focus {
+            outline: none;
+            border-color: var(--primary);
+        }
+
+        .toggle-password {
+            position: absolute;
+            right: 8px;
+            background: var(--border);
+            border: none;
+            color: var(--text-muted);
+            cursor: pointer;
+            font-size: 0.75rem;
+            font-weight: 600;
+            padding: 6px 10px;
+            border-radius: 6px;
+            transition: 0.2s;
+        }
+        .toggle-password:hover {
+            background: var(--primary);
+            color: white;
+        }
+
+        .msg-box {
+            font-size: 0.85rem;
+            margin-bottom: 1rem;
+            text-align: center;
+            min-height: 1.2rem;
+        }
+        .error { color: var(--error); }
+        .success { color: var(--success); }
+
+        .btn {
+            width: 100%;
+            padding: 12px;
+            background: var(--primary);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .btn:hover {
+            background: var(--primary-hover);
+        }
+
+        /* チャット画面（全画面） */
+        .chat-app {
+            display: none;
+            width: 100vw;
+            height: 100vh;
+            display: flex;
+        }
+
+        .sidebar {
+            width: 320px;
+            background: var(--bg-card);
+            border-right: 1px solid var(--border);
+            display: flex;
+            flex-direction: column;
+        }
+
+        .user-profile {
+            padding: 1.2rem;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: rgba(15, 23, 42, 0.5);
+        }
+
+        .room-list {
+            flex: 1;
+            overflow-y: auto;
+        }
+
+        .room-item {
+            padding: 1rem 1.2rem;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            cursor: pointer;
+            background: rgba(99, 102, 241, 0.1);
+            border-bottom: 1px solid rgba(51, 65, 85, 0.5);
+        }
+
+        .avatar {
+            width: 45px;
+            height: 45px;
+            border-radius: 50%;
+            background: var(--primary);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-weight: bold;
+            font-size: 1.1rem;
+        }
+
+        .chat-main {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            background: var(--bg-dark);
+        }
+
+        .chat-header {
+            padding: 1.2rem 1.5rem;
+            border-bottom: 1px solid var(--border);
+            font-weight: 600;
+            font-size: 1.1rem;
+            background: var(--bg-card);
+        }
+
+        .chat-messages {
+            flex: 1;
+            padding: 2rem;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .message {
+            max-width: 60%;
+            padding: 12px 16px;
+            border-radius: 12px;
+            font-size: 0.95rem;
+            line-height: 1.5;
+        }
+
+        .message.incoming {
+            background: var(--border);
+            align-self: flex-start;
+        }
+
+        .message.outgoing {
+            background: var(--primary);
+            align-self: flex-end;
+        }
+
+        .chat-input-area {
+            padding: 1.2rem 1.5rem;
+            background: var(--bg-card);
+            border-top: 1px solid var(--border);
+            display: flex;
+            gap: 12px;
+        }
+
+        .chat-input-area input {
+            flex: 1;
+            padding: 14px;
+            border-radius: 8px;
+            border: 1px solid var(--border);
+            background: var(--bg-dark);
+            color: white;
+            font-size: 1rem;
+        }
+
+        .chat-input-area input:focus {
+            outline: none;
+            border-color: var(--primary);
+        }
+
+        .logout-btn {
+            background: transparent;
+            border: none;
+            color: var(--text-muted);
+            cursor: pointer;
+            font-size: 0.9rem;
+            font-weight: 600;
+        }
+        .logout-btn:hover {
+            color: var(--error);
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <div id="authScreen" class="auth-container">
+            <div class="auth-box">
+                <div class="auth-header">
+                    <h1>NexChat</h1>
+                    <p style="color: var(--text-muted);">セキュアチャットシステム</p>
+                </div>
+                
+                <div class="tabs">
+                    <div class="tab active" onclick="switchTab('login')">ログイン</div>
+                    <div class="tab" onclick="switchTab('signup')">新規登録</div>
+                </div>
+
+                <div id="statusMsg" class="msg-box"></div>
+
+                <form id="loginForm" onsubmit="handleLogin(event)">
+                    <div class="form-group">
+                        <label>メールアドレス</label>
+                        <input type="email" id="loginEmail" required placeholder="name@example.com">
+                    </div>
+                    <div class="form-group">
+                        <label>パスワード</label>
+                        <div class="input-wrapper">
+                            <input type="password" id="loginPassword" required placeholder="••••••••">
+                            <button type="button" class="toggle-password" onclick="togglePasswordVisibility('loginPassword', this)">表示</button>
+                        </div>
+                    </div>
+                    <button type="submit" class="btn">ログイン</button>
+                </form>
+
+                <form id="signupForm" style="display: none;" onsubmit="handleSignup(event)">
+                    <div class="form-group">
+                        <label>ユーザー名</label>
+                        <input type="text" id="signupName" required placeholder="山田 太郎">
+                    </div>
+                    <div class="form-group">
+                        <label>メールアドレス</label>
+                        <input type="email" id="signupEmail" required placeholder="name@example.com">
+                    </div>
+                    <div class="form-group">
+                        <label>パスワード (6文字以上)</label>
+                        <div class="input-wrapper">
+                            <input type="password" id="signupPassword" required minlength="6" placeholder="••••••••">
+                            <button type="button" class="toggle-password" onclick="togglePasswordVisibility('signupPassword', this)">表示</button>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>パスワード（確認用）</label>
+                        <div class="input-wrapper">
+                            <input type="password" id="signupPasswordConfirm" required minlength="6" placeholder="••••••••">
+                            <button type="button" class="toggle-password" onclick="togglePasswordVisibility('signupPasswordConfirm', this)">表示</button>
+                        </div>
+                    </div>
+                    <button type="submit" class="btn">アカウント作成</button>
+                </form>
+            </div>
+        </div>
+
+        <div id="chatScreen" class="chat-app" style="display: none;">
+            <div class="sidebar">
+                <div class="user-profile">
+                    <span id="currentUserName" style="font-weight: 600;"></span>
+                    <button class="logout-btn" onclick="logout()">ログアウト</button>
+                </div>
+                <div class="room-list">
+                    <div class="room-item">
+                        <div class="avatar">AI</div>
+                        <div>
+                            <div style="font-weight: 600;">AIアシスタント</div>
+                            <div style="font-size: 0.8rem; color: var(--text-muted);">オンライン</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="chat-main">
+                <div class="chat-header">
+                    <span>AIアシスタント (サーバー連携版)</span>
+                </div>
+                <div class="chat-messages" id="chatMessages">
+                    <div class="message incoming">全画面チャットへようこそ！安全なサーバー認証を通過しました。</div>
+                </div>
+                <div class="chat-input-area">
+                    <input type="text" id="messageInput" placeholder="メッセージを入力..." onkeypress="checkEnter(event)">
+                    <button class="btn" onclick="sendMessage()" style="width: 100px;">送信</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_URL = 'http://localhost:3000/api';
+
+        window.addEventListener('DOMContentLoaded', () => {
+            const loggedInUser = localStorage.getItem('nexchat_current_session');
+            if (loggedInUser) {
+                const user = JSON.parse(loggedInUser);
+                showChatScreen(user.name);
+            }
+        });
+
+        function togglePasswordVisibility(fieldId, btnElement) {
+            const inputField = document.getElementById(fieldId);
+            if (inputField.type === 'password') {
+                inputField.type = 'text';
+                btnElement.innerText = '非表示';
+            } else {
+                inputField.type = 'password';
+                btnElement.innerText = '表示';
+            }
+        }
+
+        function switchTab(type) {
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            document.getElementById('statusMsg').innerText = '';
+
+            if (type === 'login') {
+                document.querySelectorAll('.tab')[0].classList.add('active');
+                document.getElementById('loginForm').style.display = 'block';
+                document.getElementById('signupForm').style.display = 'none';
+            } else {
+                document.querySelectorAll('.tab')[1].classList.add('active');
+                document.getElementById('loginForm').style.display = 'none';
+                document.getElementById('signupForm').style.display = 'block';
+            }
+        }
+
+        async function handleSignup(event) {
+            event.preventDefault();
+            const name = document.getElementById('signupName').value.trim();
+            const email = document.getElementById('signupEmail').value.trim();
+            const password = document.getElementById('signupPassword').value;
+            const confirmPassword = document.getElementById('signupPasswordConfirm').value;
+            const statusEl = document.getElementById('statusMsg');
+
+            if (password !== confirmPassword) {
+                statusEl.className = 'msg-box error';
+                statusEl.innerText = 'パスワードが一致しません。';
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_URL}/signup`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name, email, password })
+                });
+
+                const data = await response.json();
+
+                if (!response.ok) {
+                    statusEl.className = 'msg-box error';
+                    statusEl.innerText = data.error || '登録に失敗しました。';
+                    return;
+                }
+
+                statusEl.className = 'msg-box success';
+                statusEl.innerText = 'アカウント作成成功！ログインしてください。';
+                
+                setTimeout(() => {
+                    switchTab('login');
+                    document.getElementById('loginEmail').value = email;
+                    document.getElementById('signupForm').reset();
+                }, 2000);
+
+            } catch (error) {
+                statusEl.className = 'msg-box error';
+                statusEl.innerText = 'サーバーに接続できません。';
+            }
+        }
+
+        async function handleLogin(event) {
+            event.preventDefault();
+            const email = document.getElementById('loginEmail').value.trim();
+            const password = document.getElementById('loginPassword').value;
+            const statusEl = document.getElementById('statusMsg');
+
+            try {
+                const response = await fetch(`${API_URL}/login`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email, password })
+                });
+
+                const data = await response.json();
+
+                if (!response.ok) {
+                    statusEl.className = 'msg-box error';
+                    statusEl.innerText = data.error || 'ログインに失敗しました。';
+                    return;
+                }
+
+                statusEl.innerText = '';
+                localStorage.setItem('nexchat_current_session', JSON.stringify({ name: data.name, email }));
+                showChatScreen(data.name);
+
+            } catch (error) {
+                statusEl.className = 'msg-box error';
+                statusEl.innerText = 'サーバーに接続できません。';
+            }
+        }
+
+        function showChatScreen(userName) {
+            document.getElementById('authScreen').style.display = 'none';
+            document.getElementById('chatScreen').style.display = 'flex';
+            document.getElementById('currentUserName').innerText = userName;
+        }
+
+        function logout() {
+            localStorage.removeItem('nexchat_current_session');
+            document.getElementById('chatScreen').style.display = 'none';
+            document.getElementById('authScreen').style.display = 'flex';
+            document.getElementById('loginForm').reset();
+        }
+
+        function sendMessage() {
+            const input = document.getElementById('messageInput');
+            const text = input.value.trim();
+            if (!text) return;
+
+            const chatMessages = document.getElementById('chatMessages');
+            const outgoingMsg = document.createElement('div');
+            outgoingMsg.className = 'message outgoing';
+            outgoingMsg.innerText = text;
+            chatMessages.appendChild(outgoingMsg);
+
+            input.value = '';
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+
+            setTimeout(() => {
+                const incomingMsg = document.createElement('div');
+                incomingMsg.className = 'message incoming';
+                incomingMsg.innerText = `「${text}」を受信しました。`;
+                chatMessages.appendChild(incomingMsg);
+                chatMessages.scrollTop = chatMessages.scrollHeight;
+            }, 1000);
+        }
+
+        function checkEnter(event) {
+            if (event.key === 'Enter') {
+                sendMessage();
+            }
+        }
+    </script>
+</body>
+</html>
