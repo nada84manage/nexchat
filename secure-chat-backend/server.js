@@ -86,7 +86,15 @@ app.post('/api/login', async (req, res) => {
     }
 });
 
-// サーバー起動
-app.listen(3000, () => {
-    console.log('セキュアサーバー（永続化対応）がポート3000で起動しました');
-});
+// ローカル開発用およびVercel用のサーバー起動・エクスポート設定
+const PORT = process.env.PORT || 3000;
+
+// ローカル環境で直接 node server.js が実行されたときのみ listen する
+if (process.env.NODE_ENV !== 'production' && require.main === module) {
+    app.listen(PORT, () => {
+        console.log(`セキュアサーバー（永続化対応）がポート${PORT}で起動しました`);
+    });
+}
+
+// Vercelなどのクラウド環境用にアプリをエクスポート
+module.exports = app;
