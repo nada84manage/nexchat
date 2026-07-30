@@ -3,7 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>NexChat - Perfect Edition</title>
+    <title>NexChat - Ultimate Edition</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
     <style>
         :root {
             --primary: #6366f1;
@@ -55,6 +56,10 @@
         .sidebar { width: 320px; background: var(--bg-card); border-right: 1px solid var(--border); display: flex; flex-direction: column; }
         .user-profile { padding: 1.2rem; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; background: rgba(15, 23, 42, 0.5); }
         
+        .sidebar-actions { padding: 10px 15px; display: flex; gap: 8px; border-bottom: 1px solid var(--border); background: var(--bg-card); }
+        .sidebar-actions button { flex: 1; padding: 8px; font-size: 0.8rem; background: var(--border); color: white; border: none; border-radius: 6px; cursor: pointer; }
+        .sidebar-actions button:hover { background: var(--primary); }
+
         .room-list { flex: 1; overflow-y: auto; }
         .room-item { padding: 1rem 1.2rem; display: flex; align-items: center; gap: 12px; cursor: pointer; border-bottom: 1px solid rgba(51, 65, 85, 0.5); transition: 0.2s; }
         .room-item:hover { background: rgba(99, 102, 241, 0.1); }
@@ -67,7 +72,6 @@
         .chat-header { padding: 1.2rem 1.5rem; border-bottom: 1px solid var(--border); font-weight: 600; font-size: 1.1rem; background: var(--bg-card); display: flex; justify-content: space-between; align-items: center; }
         
         .typing-indicator { font-size: 0.8rem; color: var(--success); font-weight: normal; display: none; }
-
         .announcement-banner { background: var(--announcement-bg); border-bottom: 1px solid var(--announcement-border); padding: 10px 20px; font-size: 0.9rem; display: none; align-items: center; justify-content: space-between; color: #fbbf24; }
 
         .chat-messages { flex: 1; padding: 2rem; overflow-y: auto; display: flex; flex-direction: column; gap: 1rem; position: relative; }
@@ -100,10 +104,8 @@
         .no-chat-selected { margin: auto; color: var(--text-muted); text-align: center; font-size: 1.1rem; }
 
         .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); display: none; justify-content: center; align-items: center; z-index: 100; }
-        .modal-box { background: var(--bg-card); width: 350px; padding: 20px; border-radius: 12px; border: 1px solid var(--border); }
-        .modal-box h3 { margin-bottom: 15px; font-size: 1.1rem; }
-        .forward-target-item { padding: 10px; cursor: pointer; border-bottom: 1px solid var(--border); transition: 0.2s; }
-        .forward-target-item:hover { background: rgba(99, 102, 241, 0.2); }
+        .modal-box { background: var(--bg-card); width: 380px; padding: 25px; border-radius: 12px; border: 1px solid var(--border); text-align: center; }
+        .modal-box h3 { margin-bottom: 15px; font-size: 1.1rem; text-align: left; }
     </style>
 </head>
 <body>
@@ -171,6 +173,10 @@
                         <span id="currentUserName" style="font-weight: 600;"></span>
                         <button class="logout-btn" onclick="logout()">ログアウト</button>
                     </div>
+                    <div class="sidebar-actions">
+                        <button onclick="openMyQrModal()">🪪 マイQR</button>
+                        <button onclick="openAddFriendModal()">➕ フレンド追加</button>
+                    </div>
                     <div class="room-list" id="roomList"></div>
                 </div>
                 
@@ -183,6 +189,7 @@
 
     <div id="msgMenu" class="msg-menu">
         <button onclick="menuActionReply()">💬 返信</button>
+        <button onclick="menuActionEdit()">✏️ 編集する</button>
         <button onclick="menuActionCopy()">📋 コピー</button>
         <button onclick="menuActionForwardModal()">↗️ 転送</button>
         <button id="menuUnsend" onclick="menuActionUnsend()">↩️ 送信を取り消す</button>
@@ -190,11 +197,32 @@
         <button onclick="menuActionAnnouncement()">📢 アナウンスに設定</button>
     </div>
 
-    <div id="forwardModal" class="modal-overlay" onclick="closeForwardModal()">
+    <div id="forwardModal" class="modal-overlay" onclick="closeModal('forwardModal')">
         <div class="modal-box" onclick="event.stopPropagation()">
             <h3>メッセージの転送先を選択</h3>
-            <div id="forwardTargetList" style="max-height: 200px; overflow-y: auto;"></div>
-            <button class="btn" style="margin-top: 15px; background: var(--border);" onclick="closeForwardModal()">キャンセル</button>
+            <div id="forwardTargetList" style="max-height: 200px; overflow-y: auto; text-align: left;"></div>
+            <button class="btn" style="margin-top: 15px; background: var(--border);" onclick="closeModal('forwardModal')">キャンセル</button>
+        </div>
+    </div>
+
+    <div id="myQrModal" class="modal-overlay" onclick="closeModal('myQrModal')">
+        <div class="modal-box" onclick="event.stopPropagation()">
+            <h3>マイQRコード</h3>
+            <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 15px;">このQRコードを相手に読み込んでもらおう</p>
+            <div id="qrcodeContainer" style="display: flex; justify-content: center; background: white; padding: 15px; border-radius: 8px; margin-bottom: 15px;"></div>
+            <button class="btn" style="background: var(--border);" onclick="closeModal('myQrModal')">閉じる</button>
+        </div>
+    </div>
+
+    <div id="addFriendModal" class="modal-overlay" onclick="closeModal('addFriendModal')">
+        <div class="modal-box" onclick="event.stopPropagation()">
+            <h3>フレンドを追加</h3>
+            <div class="form-group" style="text-align: left; margin-top: 15px;">
+                <label>追加するユーザー名</label>
+                <input type="text" id="friendNameInput" placeholder="正確なユーザー名を入力">
+            </div>
+            <button class="btn" onclick="submitAddFriend()">追加する</button>
+            <button class="btn" style="margin-top: 10px; background: var(--border);" onclick="closeModal('addFriendModal')">キャンセル</button>
         </div>
     </div>
 
@@ -208,6 +236,7 @@
         let activeMsgSender = '';
         let hiddenMessages = JSON.parse(localStorage.getItem('nexchat_hidden_msgs') || '[]');
         let replyingToText = null;
+        let editingMsgId = null;
         let lastTypingSent = 0;
 
         window.addEventListener('DOMContentLoaded', () => {
@@ -309,12 +338,12 @@
 
         async function loadUsers() {
             try {
-                const response = await fetch(`${API_URL}/users`);
-                const users = await response.json();
+                const response = await fetch(`${API_URL}/friends?name=${encodeURIComponent(currentUser.name)}`);
+                const friends = await response.json();
                 const roomList = document.getElementById('roomList');
                 roomList.innerHTML = '';
 
-                // Keepメモを常に最上部に配置
+                // Keepメモ
                 const keepItem = document.createElement('div');
                 keepItem.className = 'room-item';
                 if (currentRecipient === currentUser.name) keepItem.classList.add('active');
@@ -328,43 +357,37 @@
                 keepItem.onclick = () => selectUser(currentUser.name);
                 roomList.appendChild(keepItem);
 
-                // 他のユーザーを表示（自分自身は除外）
-                users.forEach(user => {
-                    if (user.name === currentUser.name) return;
-
+                friends.forEach(friendName => {
                     const item = document.createElement('div');
                     item.className = 'room-item';
-                    if (currentRecipient === user.name) item.classList.add('active');
+                    if (currentRecipient === friendName) item.classList.add('active');
                     
                     item.innerHTML = `
-                        <div class="avatar">${user.name.charAt(0)}</div>
+                        <div class="avatar">${friendName.charAt(0)}</div>
                         <div>
-                            <div style="font-weight: 600;">${user.name}</div>
-                            <div style="font-size: 0.8rem; color: var(--text-muted);">${user.email}</div>
+                            <div style="font-weight: 600;">${friendName}</div>
+                            <div style="font-size: 0.8rem; color: var(--text-muted);">フレンド</div>
                         </div>
                     `;
-                    item.onclick = () => selectUser(user.name);
+                    item.onclick = () => selectUser(friendName);
                     roomList.appendChild(item);
                 });
             } catch (e) {
-                console.error('ユーザー一覧取得失敗', e);
+                console.error('フレンド一覧取得失敗', e);
             }
         }
 
         async function selectUser(recipientName) {
             currentRecipient = recipientName;
             replyingToText = null;
+            editingMsgId = null;
             
-            // サイドバーの選択状態（active）を正しく付け替え
             const roomListItems = document.querySelectorAll('.room-item');
             roomListItems.forEach(item => {
                 item.classList.remove('active');
                 const isKeep = (recipientName === currentUser.name && item.querySelector('.avatar').classList.contains('keep'));
                 const isUser = item.innerText.includes(recipientName) && !item.querySelector('.avatar').classList.contains('keep');
-                
-                if (isKeep || isUser) {
-                    item.classList.add('active');
-                }
+                if (isKeep || isUser) item.classList.add('active');
             });
 
             const mainArea = document.getElementById('chatMainArea');
@@ -383,7 +406,7 @@
                 <div class="chat-messages" id="chatMessages"></div>
                 <div id="replyPreviewBar" class="reply-preview-bar">
                     <span id="replyPreviewText">返信中: ...</span>
-                    <button onclick="cancelReply()">✕ 終了</button>
+                    <button onclick="cancelReplyOrEdit()">✕ 終了</button>
                 </div>
                 <div class="chat-input-area">
                     <input type="text" id="messageInput" placeholder="メッセージを入力..." oninput="handleInput()" onkeypress="checkEnter(event)">
@@ -404,7 +427,7 @@
 
         async function loadMessages() {
             try {
-                const response = await fetch(`${API_URL}/messages?user1=${currentUser.name}&user2=${currentRecipient}`);
+                const response = await fetch(`${API_URL}/messages?user1=${encodeURIComponent(currentUser.name)}&user2=${encodeURIComponent(currentRecipient)}`);
                 const messages = await response.json();
                 if (Array.isArray(messages)) {
                     renderMessages(messages);
@@ -418,12 +441,10 @@
         async function checkTypingStatus() {
             if (currentRecipient === currentUser.name) return;
             try {
-                const response = await fetch(`${API_URL}/typing?sender=${currentUser.name}&recipient=${currentRecipient}`);
+                const response = await fetch(`${API_URL}/typing?sender=${encodeURIComponent(currentUser.name)}&recipient=${encodeURIComponent(currentRecipient)}`);
                 const data = await response.json();
                 const indicator = document.getElementById('typingIndicator');
-                if (indicator) {
-                    indicator.style.display = data.isTyping ? 'inline' : 'none';
-                }
+                if (indicator) indicator.style.display = data.isTyping ? 'inline' : 'none';
             } catch (e) {}
         }
 
@@ -449,10 +470,7 @@
 
             messages.forEach(msg => {
                 if (hiddenMessages.includes(msg.id)) return;
-
-                if (msg.is_announcement) {
-                    latestAnnouncement = msg.text;
-                }
+                if (msg.is_announcement) latestAnnouncement = msg.text;
 
                 const isMyMessage = msg.sender === currentUser.name;
                 const row = document.createElement('div');
@@ -471,15 +489,14 @@
                 meta.className = 'message-meta';
                 
                 if (isMyMessage) {
-                    const readText = (currentRecipient === currentUser.name || msg.is_read) ? '既読' : '';
+                    // Keepメモの場合は「既読」を表示せずスッキリさせる、他人のDMは既読判定
+                    const readText = (currentRecipient === currentUser.name) ? '' : (msg.is_read ? '既読' : '');
                     meta.innerHTML = `
                         <div class="read-status">${readText}</div>
                         <div class="message-time">${msg.time}</div>
                     `;
                 } else {
-                    meta.innerHTML = `
-                        <div class="message-time" style="margin-top: auto;">${msg.time}</div>
-                    `;
+                    meta.innerHTML = `<div class="message-time" style="margin-top: auto;">${msg.time}</div>`;
                 }
 
                 row.appendChild(bubble);
@@ -508,7 +525,10 @@
 
             const menu = document.getElementById('msgMenu');
             const btnUnsend = document.getElementById('menuUnsend');
+            const btnEdit = menu.querySelector('button:nth-child(2)'); // 編集ボタン
+            
             btnUnsend.style.display = isMyMessage ? 'block' : 'none';
+            btnEdit.style.display = isMyMessage ? 'block' : 'none';
 
             menu.style.top = `${e.clientY}px`;
             menu.style.left = `${e.clientX}px`;
@@ -518,26 +538,41 @@
         function menuActionReply() {
             document.getElementById('msgMenu').style.display = 'none';
             replyingToText = `[返信元のメッセージ] "${activeMsgText}"\n`;
+            editingMsgId = null;
             
             const bar = document.getElementById('replyPreviewBar');
-            const textEl = document.getElementById('replyPreviewText');
-            textEl.innerText = `返信中: "${activeMsgText}"`;
+            document.getElementById('replyPreviewText').innerText = `返信中: "${activeMsgText}"`;
             bar.style.display = 'flex';
             document.getElementById('messageInput').focus();
         }
 
-        function cancelReply() {
+        function menuActionEdit() {
+            document.getElementById('msgMenu').style.display = 'none';
+            editingMsgId = activeMsgId;
             replyingToText = null;
+
+            const input = document.getElementById('messageInput');
+            input.value = activeMsgText;
+            input.focus();
+            document.getElementById('sendBtn').disabled = false;
+            document.getElementById('sendBtn').innerText = '編集';
+
+            const bar = document.getElementById('replyPreviewBar');
+            document.getElementById('replyPreviewText').innerText = `メッセージを編集中...`;
+            bar.style.display = 'flex';
+        }
+
+        function cancelReplyOrEdit() {
+            replyingToText = null;
+            editingMsgId = null;
+            document.getElementById('messageInput').value = '';
+            document.getElementById('sendBtn').innerText = '送信';
             document.getElementById('replyPreviewBar').style.display = 'none';
         }
 
         function menuActionCopy() {
             document.getElementById('msgMenu').style.display = 'none';
-            navigator.clipboard.writeText(activeMsgText).then(() => {
-                alert('メッセージをクリップボードにコピーしました！');
-            }).catch(err => {
-                console.error('コピー失敗', err);
-            });
+            navigator.clipboard.writeText(activeMsgText).then(() => alert('コピーしました！'));
         }
 
         async function menuActionForwardModal() {
@@ -546,69 +581,53 @@
             targetList.innerHTML = '';
 
             try {
-                const response = await fetch(`${API_URL}/users`);
-                const users = await response.json();
+                const response = await fetch(`${API_URL}/friends?name=${encodeURIComponent(currentUser.name)}`);
+                const friends = await response.json();
 
                 const keepDiv = document.createElement('div');
                 keepDiv.className = 'forward-target-item';
+                keepDiv.style.cssText = 'padding: 10px; cursor: pointer; border-bottom: 1px solid var(--border);';
                 keepDiv.innerText = '📁 Keepメモ (自分)';
                 keepDiv.onclick = () => executeForward(currentUser.name);
                 targetList.appendChild(keepDiv);
 
-                users.forEach(user => {
-                    if (user.name === currentUser.name) return;
+                friends.forEach(fName => {
                     const div = document.createElement('div');
                     div.className = 'forward-target-item';
-                    div.innerText = `👤 ${user.name}`;
-                    div.onclick = () => executeForward(user.name);
+                    div.style.cssText = 'padding: 10px; cursor: pointer; border-bottom: 1px solid var(--border);';
+                    div.innerText = `👤 ${fName}`;
+                    div.onclick = () => executeForward(fName);
                     targetList.appendChild(div);
                 });
 
                 document.getElementById('forwardModal').style.display = 'flex';
-            } catch (e) {
-                console.error('転送先一覧の取得失敗', e);
-            }
+            } catch (e) {}
         }
 
-        function closeForwardModal() {
-            document.getElementById('forwardModal').style.display = 'none';
+        function closeModal(modalId) {
+            document.getElementById(modalId).style.display = 'none';
         }
 
         async function executeForward(targetRecipient) {
-            closeForwardModal();
+            closeModal('forwardModal');
             const now = new Date();
             const time = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
-            const forwardedText = `[転送メッセージ]\n${activeMsgText}`;
-
-            try {
-                await fetch(`${API_URL}/messages`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        sender: currentUser.name,
-                        recipient: targetRecipient,
-                        text: forwardedText,
-                        time
-                    })
-                });
-                alert(`${targetRecipient} にメッセージを転送しました！`);
-            } catch (e) {
-                console.error('転送失敗', e);
-            }
+            await fetch(`${API_URL}/messages`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ sender: currentUser.name, recipient: targetRecipient, text: `[転送メッセージ]\n${activeMsgText}`, time })
+            });
+            alert('転送しました！');
         }
 
         async function menuActionUnsend() {
             document.getElementById('msgMenu').style.display = 'none';
-            try {
-                await fetch(`${API_URL}/messages/unsend`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ id: activeMsgId, sender: currentUser.name })
-                });
-                loadMessages();
-            } catch (e) {
-                console.error('送信取り消し失敗', e);
-            }
+            await fetch(`${API_URL}/messages/unsend`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id: activeMsgId, sender: currentUser.name })
+            });
+            loadMessages();
         }
 
         function menuActionDeleteLocal() {
@@ -622,42 +641,27 @@
             document.getElementById('msgMenu').style.display = 'none';
             const now = new Date();
             const time = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
-
-            try {
-                await fetch(`${API_URL}/messages`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        sender: currentUser.name,
-                        recipient: currentRecipient,
-                        text: `[アナウンス] ${activeMsgText}`,
-                        time,
-                        is_announcement: true
-                    })
-                });
-                loadMessages();
-            } catch (e) {
-                console.error('アナウンス設定失敗', e);
-            }
+            await fetch(`${API_URL}/messages`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ sender: currentUser.name, recipient: currentRecipient, text: `[アナウンス] ${activeMsgText}`, time, is_announcement: true })
+            });
+            loadMessages();
         }
 
         async function handleInput() {
             const input = document.getElementById('messageInput');
             const sendBtn = document.getElementById('sendBtn');
-            if (sendBtn) {
-                sendBtn.disabled = input.value.trim().length === 0;
-            }
+            if (sendBtn && !editingMsgId) sendBtn.disabled = input.value.trim().length === 0;
 
             const now = Date.now();
             if (now - lastTypingSent > 2000 && currentRecipient && currentRecipient !== currentUser.name) {
                 lastTypingSent = now;
-                try {
-                    await fetch(`${API_URL}/typing`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ sender: currentUser.name, recipient: currentRecipient })
-                    });
-                } catch (e) {}
+                await fetch(`${API_URL}/typing`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ sender: currentUser.name, recipient: currentRecipient })
+                }).catch(() => {});
             }
         }
 
@@ -666,9 +670,21 @@
             let text = input.value.trim();
             if (!text || !currentRecipient) return;
 
+            // 編集モードの場合
+            if (editingMsgId) {
+                await fetch(`${API_URL}/messages/edit`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ id: editingMsgId, sender: currentUser.name, newText: text })
+                });
+                cancelReplyOrEdit();
+                loadMessages();
+                return;
+            }
+
             if (replyingToText) {
                 text = `${replyingToText}${text}`;
-                cancelReply();
+                cancelReplyOrEdit();
             }
 
             const now = new Date();
@@ -677,30 +693,56 @@
             input.value = '';
             document.getElementById('sendBtn').disabled = true;
 
-            try {
-                await fetch(`${API_URL}/messages`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        sender: currentUser.name,
-                        recipient: currentRecipient,
-                        text,
-                        time
-                    })
-                });
-                loadMessages();
-            } catch (e) {
-                console.error('送信失敗', e);
-            }
+            await fetch(`${API_URL}/messages`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ sender: currentUser.name, recipient: currentRecipient, text, time })
+            });
+            loadMessages();
         }
 
         function checkEnter(event) {
             if (event.key === 'Enter') {
                 event.preventDefault();
                 const sendBtn = document.getElementById('sendBtn');
-                if (sendBtn && !sendBtn.disabled) {
-                    sendMessage();
+                if (sendBtn && !sendBtn.disabled) sendMessage();
+            }
+        }
+
+        function openMyQrModal() {
+            const container = document.getElementById('qrcodeContainer');
+            container.innerHTML = '';
+            new QRCode(container, {
+                text: currentUser.name,
+                width: 180,
+                height: 180
+            });
+            document.getElementById('myQrModal').style.display = 'flex';
+        }
+
+        function openAddFriendModal() {
+            document.getElementById('friendNameInput').value = '';
+            document.getElementById('addFriendModal').style.display = 'flex';
+        }
+
+        async function submitAddFriend() {
+            const targetName = document.getElementById('friendNameInput').value.trim();
+            if (!targetName) return;
+
+            try {
+                const response = await fetch(`${API_URL}/friends/add`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ myName: currentUser.name, targetName })
+                });
+                const data = await response.json();
+                alert(data.message);
+                if (data.success) {
+                    closeModal('addFriendModal');
+                    loadUsers();
                 }
+            } catch (e) {
+                alert('エラーが発生しました');
             }
         }
 
