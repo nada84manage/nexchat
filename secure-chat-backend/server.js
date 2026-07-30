@@ -75,11 +75,9 @@ app.post('/api/friends/add', async (req, res) => {
         if (!myName || !targetName) return res.status(400).json({ success: false, message: 'データが不足しています。' });
         if (myName === targetName) return res.status(400).json({ success: false, message: '自分自身を追加することはできません。' });
 
-        // 相手が存在するか確認
         const { data: targetUser } = await supabase.from('users').select('*').eq('name', targetName).single();
         if (!targetUser) return res.status(400).json({ success: false, message: '指定したユーザーが見つかりません。' });
 
-        // すでにフレンド関係（または登録済みか）チェック
         const { data: existing } = await supabase
             .from('friend_requests')
             .select('*')
@@ -180,7 +178,7 @@ app.post('/api/messages/edit', async (req, res) => {
     }
 });
 
-// 送信取り消し（完全削除）
+// 送信取り消し
 app.post('/api/messages/unsend', async (req, res) => {
     try {
         const { id, sender } = req.body;
@@ -192,7 +190,7 @@ app.post('/api/messages/unsend', async (req, res) => {
     }
 });
 
-// 既読更新 (Keepメモの場合は実行しないようにガード)
+// 既読更新 (Keepメモの場合は実行しない)
 app.post('/api/read', async (req, res) => {
     try {
         const { myName, targetName } = req.body;
