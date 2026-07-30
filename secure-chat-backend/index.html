@@ -21,8 +21,10 @@
         * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Inter', sans-serif; }
         body, html { width: 100%; height: 100vh; background-color: var(--bg-dark); color: var(--text-main); overflow: hidden; }
 
-        .container { width: 100vw; height: 100vh; background: var(--bg-card); display: flex; overflow: hidden; }
-        .auth-container { width: 100%; height: 100%; display: flex; justify-content: center; align-items: center; padding: 2rem; background: var(--bg-dark); }
+        .app-wrapper { width: 100vw; height: 100vh; display: flex; overflow: hidden; }
+
+        /* 認証画面 */
+        #authScreen { width: 100%; height: 100%; display: flex; justify-content: center; align-items: center; background: var(--bg-dark); position: absolute; top: 0; left: 0; z-index: 10; }
         .auth-box { width: 100%; max-width: 400px; background: var(--bg-card); padding: 2.5rem; border-radius: 16px; box-shadow: 0 10px 25px rgba(0,0,0,0.5); border: 1px solid var(--border); }
         .auth-header { text-align: center; margin-bottom: 2rem; }
         .auth-header h1 { font-size: 2rem; color: var(--primary); margin-bottom: 0.5rem; }
@@ -47,7 +49,8 @@
         .btn:disabled { background: var(--disabled); cursor: not-allowed; }
 
         /* チャット画面 */
-        .chat-app { display: none; width: 100vw; height: 100vh; display: flex; }
+        #chatScreen { width: 100%; height: 100%; display: none; background: var(--bg-dark); position: absolute; top: 0; left: 0; z-index: 5; }
+        .chat-layout { width: 100%; height: 100%; display: flex; }
         .sidebar { width: 320px; background: var(--bg-card); border-right: 1px solid var(--border); display: flex; flex-direction: column; }
         .user-profile { padding: 1.2rem; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; background: rgba(15, 23, 42, 0.5); }
         .room-list { flex: 1; overflow-y: auto; }
@@ -81,8 +84,8 @@
 </head>
 <body>
 
-    <div class="container">
-        <div id="authScreen" class="auth-container">
+    <div class="app-wrapper">
+        <div id="authScreen">
             <div class="auth-box">
                 <div class="auth-header">
                     <h1>NexChat</h1>
@@ -130,32 +133,34 @@
             </div>
         </div>
 
-        <div id="chatScreen" class="chat-app" style="display: none;">
-            <div class="sidebar">
-                <div class="user-profile">
-                    <span id="currentUserName" style="font-weight: 600;"></span>
-                    <button class="logout-btn" onclick="logout()">ログアウト</button>
-                </div>
-                <div class="room-list">
-                    <div class="room-item">
-                        <div class="avatar">DEV</div>
-                        <div>
-                            <div style="font-weight: 600;">NexChat デベロッパー</div>
-                            <div style="font-size: 0.8rem; color: var(--text-muted);">オンライン</div>
+        <div id="chatScreen">
+            <div class="chat-layout">
+                <div class="sidebar">
+                    <div class="user-profile">
+                        <span id="currentUserName" style="font-weight: 600;"></span>
+                        <button class="logout-btn" onclick="logout()">ログアウト</button>
+                    </div>
+                    <div class="room-list">
+                        <div class="room-item">
+                            <div class="avatar">DEV</div>
+                            <div>
+                                <div style="font-weight: 600;">NexChat デベロッパー</div>
+                                <div style="font-size: 0.8rem; color: var(--text-muted);">オンライン</div>
+                            </div>
                         </div>
                     </div>
                 </div>
-            </div>
-            
-            <div class="chat-main">
-                <div class="chat-header">
-                    <span>NexChat デベロッパー (公式サポート)</span>
-                </div>
-                <div class="chat-messages" id="chatMessages"></div>
-                <div id="typingIndicator" class="typing-indicator"></div>
-                <div class="chat-input-area">
-                    <input type="text" id="messageInput" placeholder="メッセージを入力..." oninput="handleInput()" onkeypress="checkEnter(event)">
-                    <button id="sendBtn" class="btn" onclick="sendMessage()" style="width: 100px;" disabled>送信</button>
+                
+                <div class="chat-main">
+                    <div class="chat-header">
+                        <span>NexChat デベロッパー (公式サポート)</span>
+                    </div>
+                    <div class="chat-messages" id="chatMessages"></div>
+                    <div id="typingIndicator" class="typing-indicator"></div>
+                    <div class="chat-input-area">
+                        <input type="text" id="messageInput" placeholder="メッセージを入力..." oninput="handleInput()" onkeypress="checkEnter(event)">
+                        <button id="sendBtn" class="btn" onclick="sendMessage()" style="width: 100px;" disabled>送信</button>
+                    </div>
                 </div>
             </div>
         </div>
@@ -164,6 +169,7 @@
     <script>
         const API_URL = '/api';
         let currentUser = null;
+        let typingTimer = null;
 
         window.addEventListener('DOMContentLoaded', () => {
             const loggedInUser = localStorage.getItem('nexchat_current_session');
@@ -249,9 +255,10 @@
 
         function showChatScreen(userName) {
             document.getElementById('authScreen').style.display = 'none';
-            document.getElementById('chatScreen').style.display = 'flex';
+            document.getElementById('chatScreen').style.display = 'block';
             document.getElementById('currentUserName').innerText = userName;
             loadMessages();
+            setInterval(loadMessages, 3000); // 3秒ごとにサーバーからメッセージを同期
         }
 
         async function loadMessages() {
@@ -259,50 +266,54 @@
                 const response = await fetch(`${API_URL}/messages`);
                 const data = await response.json();
                 const messages = data.global || [];
-                renderMessages(messages);
+                const chatMessages = document.getElementById('chatMessages');
+                
+                chatMessages.innerHTML = '';
+                messages.forEach(msg => {
+                    const wrapper = document.createElement('div');
+                    const isMyMessage = msg.sender === currentUser.name;
+                    wrapper.className = `message-wrapper ${isMyMessage ? 'outgoing' : 'incoming'}`;
+
+                    const bubble = document.createElement('div');
+                    bubble.className = `message ${isMyMessage ? 'outgoing' : 'incoming'}`;
+                    bubble.innerText = `${msg.sender}: ${msg.text}`;
+
+                    const info = document.createElement('div');
+                    info.className = 'message-info';
+                    info.innerHTML = `<span>${msg.time}</span><span>${msg.read ? '既読' : '未読'}</span>`;
+
+                    wrapper.appendChild(bubble);
+                    wrapper.appendChild(info);
+                    chatMessages.appendChild(wrapper);
+                });
+                chatMessages.scrollTop = chatMessages.scrollHeight;
             } catch (e) {
                 console.error('メッセージ取得失敗', e);
             }
         }
 
-        function renderMessages(messages) {
-            const chatMessages = document.getElementById('chatMessages');
-            // スクロール位置が一番下付近にあるか判定
-            const isScrolledToBottom = chatMessages.scrollHeight - chatMessages.clientHeight <= chatMessages.scrollTop + 50;
-
-            chatMessages.innerHTML = '';
-            messages.forEach(msg => {
-                const wrapper = document.createElement('div');
-                const isMyMessage = msg.sender === currentUser.name;
-                wrapper.className = `message-wrapper ${isMyMessage ? 'outgoing' : 'incoming'}`;
-
-                const bubble = document.createElement('div');
-                bubble.className = `message ${isMyMessage ? 'outgoing' : 'incoming'}`;
-                bubble.innerText = `${msg.sender}: ${msg.text}`;
-
-                const info = document.createElement('div');
-                info.className = 'message-info';
-                info.innerHTML = `<span>${msg.time}</span><span>${msg.read ? '既読' : '未読'}</span>`;
-
-                wrapper.appendChild(bubble);
-                wrapper.appendChild(info);
-                chatMessages.appendChild(wrapper);
-            });
-
-            if (isScrolledToBottom || chatMessages.children.length <= 5) {
-                chatMessages.scrollTop = chatMessages.scrollHeight;
-            }
-        }
-
+        // 入力値の検証（空白・改行のみなら送信ボタンを無効化）
         function handleInput() {
             const input = document.getElementById('messageInput');
             const sendBtn = document.getElementById('sendBtn');
+            const indicator = document.getElementById('typingIndicator');
             const text = input.value;
 
             if (text.trim().length > 0) {
                 sendBtn.disabled = false;
             } else {
                 sendBtn.disabled = true;
+            }
+
+            // 相手（デベロッパー）が入力中の演出（自分が入力しているときは自分には出さず、相手が打っている演出）
+            if (text.length > 0) {
+                indicator.innerText = 'NexChat デベロッパーが入力中...';
+                clearTimeout(typingTimer);
+                typingTimer = setTimeout(() => {
+                    indicator.innerText = '';
+                }, 1500);
+            } else {
+                indicator.innerText = '';
             }
         }
 
@@ -314,35 +325,19 @@
             const now = new Date();
             const time = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
 
-            // 入力欄をクリアしてボタンを一時無効化
+            // 入力欄をクリアしてボタンを即無効化
             input.value = '';
             document.getElementById('sendBtn').disabled = true;
-
-            // 即座に自分の画面へ追加して表示させる（タイムラグをなくすため）
-            const chatMessages = document.getElementById('chatMessages');
-            const wrapper = document.createElement('div');
-            wrapper.className = 'message-wrapper outgoing';
-            
-            const bubble = document.createElement('div');
-            bubble.className = 'message outgoing';
-            bubble.innerText = `${currentUser.name}: ${text}`;
-
-            const info = document.createElement('div');
-            info.className = 'message-info';
-            info.innerHTML = `<span>${time}</span><span>未読</span>`;
-
-            wrapper.appendChild(bubble);
-            wrapper.appendChild(info);
-            chatMessages.appendChild(wrapper);
-            chatMessages.scrollTop = chatMessages.scrollHeight;
+            document.getElementById('typingIndicator').innerText = '';
 
             try {
-                // バックグラウンドでサーバーに送信
+                // サーバー（JSONファイル）へ送信
                 await fetch(`${API_URL}/messages`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ sender: currentUser.name, text, time })
                 });
+                loadMessages(); // 即座に反映
             } catch (e) {
                 console.error('送信失敗', e);
             }
