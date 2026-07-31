@@ -28,8 +28,6 @@ app.post('/api/signup', async (req, res) => {
         }
 
         const hashedPassword = await bcrypt.hash(password, 10);
-        
-        // 初回登録時に初期のQRシークレットを自動作成（更新されるまでずっと同じ値）
         const initialQrSecret = `${name}_${Date.now()}_fixed`;
 
         const { error } = await supabase.from('users').insert([{ 
@@ -42,6 +40,7 @@ app.post('/api/signup', async (req, res) => {
         if (error) throw error;
         res.json({ success: true, message: '登録が完了しました！' });
     } catch (err) {
+        console.error('Signup Error:', err);
         res.status(500).json({ success: false, message: 'サーバーエラーが発生しました。' });
     }
 });
@@ -67,18 +66,7 @@ app.post('/api/login', async (req, res) => {
     }
 });
 
-// ユーザー一覧
-app.get('/api/users', async (req, res) => {
-    try {
-        const { data, error } = await supabase.from('users').select('name, email');
-        if (error) throw error;
-        res.json(data || []);
-    } catch (err) {
-        res.status(500).json({ success: false, message: 'ユーザー一覧の取得に失敗しました。' });
-    }
-});
-
-// 【追加】マイQRコード取得・更新用API
+// マイQRコード取得・更新用API
 app.post('/api/qr/update', async (req, res) => {
     try {
         const { name, forceRefresh } = req.body;
@@ -89,7 +77,6 @@ app.post('/api/qr/update', async (req, res) => {
 
         let qrSecret = user.qr_secret;
 
-        // forceRefreshがtrue（「QRコードを更新」ボタンを押したとき）または未設定の場合のみ新しい値に書き換える
         if (forceRefresh || !qrSecret) {
             qrSecret = `${name}_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
             const { error: updateError } = await supabase
@@ -102,11 +89,12 @@ app.post('/api/qr/update', async (req, res) => {
 
         res.json({ success: true, qrData: qrSecret });
     } catch (err) {
+        console.error('QR Update Error:', err);
         res.status(500).json({ success: false, message: 'QRコードの処理に失敗しました。' });
     }
 });
 
-// 【修正】フレンド追加API (QRコードの有効性チェック付き)
+// フレンド追加API (QRコードの有効性チェック付き)
 app.post('/api/friends/add', async (req, res) => {
     try {
         const { myName, targetName, qrData } = req.body;
@@ -116,7 +104,6 @@ app.post('/api/friends/add', async (req, res) => {
         const { data: targetUser } = await supabase.from('users').select('*').eq('name', targetName).single();
         if (!targetUser) return res.status(400).json({ success: false, message: '指定したユーザーが見つかりません。' });
 
-        // QRコード経由の場合、最新のqr_secretと一致しているかチェック（古いQRの無効化判定）
         if (qrData && targetUser.qr_secret && targetUser.qr_secret !== qrData) {
             return res.status(400).json({ success: false, message: 'このQRコードは無効化されています。新しいQRコードを読み込んでください。' });
         }
@@ -151,10 +138,12 @@ app.get('/api/friends', async (req, res) => {
         if (error) throw error;
         
         const friendNames = new Set();
-        data.forEach(row => {
-            if (row.sender === name) friendNames.add(row.recipient);
-            if (row.recipient === name) friendNames.add(row.sender);
-        });
+        if (Array.isArray(data)) {
+            data.forEach(row => {
+                if (row.sender === name) friendNames.add(row.recipient);
+                if (row.recipient === name) friendNames.add(row.sender);
+            });
+        }
 
         res.json(Array.from(friendNames));
     } catch (err) {
@@ -191,7 +180,7 @@ app.post('/api/messages', async (req, res) => {
             recipient,
             text,
             time: time || new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-            is_read: sender === recipient, // Keepメモなら最初から既読
+            is_read: sender === recipient,
             is_deleted: false,
             is_announcement: is_announcement || false,
             reply_to_id: reply_to_id || null,
@@ -236,7 +225,7 @@ app.post('/api/messages/unsend', async (req, res) => {
     }
 });
 
-// 既読更新 (Keepメモの場合は実行しない)
+// 既読更新
 app.post('/api/read', async (req, res) => {
     try {
         const { myName, targetName } = req.body;
