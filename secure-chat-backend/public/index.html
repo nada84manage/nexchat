@@ -349,7 +349,8 @@
                 const data = await response.json();
                 if (!response.ok) throw new Error(data.message || 'ログインに失敗しました');
 
-                currentUser = { name: data.user.name, email };
+                // ★修正点: サーバーから返る user.name を確実に保持するよう変更
+                currentUser = { name: data.user.name, email: data.user.email || email };
                 localStorage.setItem('nexchat_current_session', JSON.stringify(currentUser));
                 showChatScreen();
             } catch (error) {
@@ -836,18 +837,29 @@
             loadMessages();
         }
 
-        // マイQRコード表示モーダルを開く（まずは現在の固定QRシークレットを取得）
+        // マイQRコード表示モーダルを開く
         async function openMyQrModal() {
             document.getElementById('myQrModal').style.display = 'flex';
             await fetchAndRenderQr(false);
         }
 
-        // 「QRコードを更新」ボタンが押されたとき（新しいシークレットを発行して上書き）
+        // 「QRコードを更新」ボタンが押されたとき
         async function generateMyQr() {
             await fetchAndRenderQr(true);
         }
 
         async function fetchAndRenderQr(forceRefresh) {
+            // セキュリティ対策: 念のため currentUser.name が無い場合はストレージから再復元
+            if (!currentUser || !currentUser.name) {
+                const saved = localStorage.getItem('nexchat_current_session');
+                if (saved) currentUser = JSON.parse(saved);
+            }
+
+            if (!currentUser || !currentUser.name) {
+                alert('ユーザー情報が確認できません。再ログインしてください。');
+                return;
+            }
+
             const container = document.getElementById('qrcodeContainer');
             container.innerHTML = '<span style="color: black; font-size: 0.85rem;">読込中...</span>';
 
@@ -863,7 +875,7 @@
                 container.innerHTML = '';
                 if (typeof QRCode !== 'undefined') {
                     new QRCode(container, {
-                        text: data.qrData, // サーバーから取得した固定/更新済みのシークレット文字列
+                        text: data.qrData,
                         width: 180,
                         height: 180,
                         colorDark: "#000000",
@@ -927,7 +939,7 @@
                     body: JSON.stringify({ 
                         myName: currentUser.name, 
                         targetName: targetName, 
-                        qrData: decodedText // 読み取ったQRのシークレットを送って有効性を判定する
+                        qrData: decodedText 
                     })
                 });
                 const data = await response.json();
