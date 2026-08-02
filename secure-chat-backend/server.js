@@ -66,23 +66,33 @@ app.post('/api/login', async (req, res) => {
     }
 });
 
-// マイQRコード取得・更新用API
+// マイQRコード取得・更新用API（名前またはメールアドレスの両方で検索できるように強化）
 app.post('/api/qr/update', async (req, res) => {
     try {
-        const { name, forceRefresh } = req.body;
-        if (!name) return res.status(400).json({ success: false, message: 'ユーザー名が必要です。' });
+        const { name, email, forceRefresh } = req.body;
+        if (!name && !email) return res.status(400).json({ success: false, message: 'ユーザー名またはメールアドレスが必要です。' });
 
-        const { data: user, error: fetchError } = await supabase.from('users').select('*').eq('name', name).single();
-        if (fetchError || !user) return res.status(400).json({ success: false, message: 'ユーザーが見つかりません。' });
+        let query = supabase.from('users').select('*');
+        if (name) {
+            query = query.eq('name', name);
+        } else if (email) {
+            query = query.eq('email', email);
+        }
 
+        const { data: users, error: fetchError } = await query;
+        if (fetchError || !users || users.length === 0) {
+            return res.status(400).json({ success: false, message: 'ユーザーが見つかりません。' });
+        }
+
+        const user = users[0];
         let qrSecret = user.qr_secret;
 
         if (forceRefresh || !qrSecret) {
-            qrSecret = `${name}_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+            qrSecret = `${user.name}_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
             const { error: updateError } = await supabase
                 .from('users')
                 .update({ qr_secret: qrSecret })
-                .eq('name', name);
+                .eq('id', user.id);
 
             if (updateError) throw updateError;
         }
