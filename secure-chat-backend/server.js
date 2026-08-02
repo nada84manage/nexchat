@@ -66,7 +66,7 @@ app.post('/api/login', async (req, res) => {
     }
 });
 
-// マイQRコード取得・更新用API
+// マイQRコード取得・更新用API（★ここが足りていなかった部分です）
 app.post('/api/qr/update', async (req, res) => {
     try {
         const { name, forceRefresh } = req.body;
@@ -91,6 +91,17 @@ app.post('/api/qr/update', async (req, res) => {
     } catch (err) {
         console.error('QR Update Error:', err);
         res.status(500).json({ success: false, message: 'QRコードの処理に失敗しました。' });
+    }
+});
+
+// ユーザー一覧
+app.get('/api/users', async (req, res) => {
+    try {
+        const { data, error } = await supabase.from('users').select('name, email');
+        if (error) throw error;
+        res.json(data || []);
+    } catch (err) {
+        res.status(500).json({ success: false, message: 'ユーザー一覧の取得に失敗しました。' });
     }
 });
 
@@ -174,7 +185,7 @@ app.get('/api/messages', async (req, res) => {
 // メッセージ送信
 app.post('/api/messages', async (req, res) => {
     try {
-        const { sender, recipient, text, time, is_announcement, reply_to_id, reply_to_sender, reply_to_text } = req.body;
+        const { sender, recipient, text, time, is_announcement } = req.body;
         const newMessage = {
             sender,
             recipient,
@@ -182,10 +193,7 @@ app.post('/api/messages', async (req, res) => {
             time: time || new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
             is_read: sender === recipient,
             is_deleted: false,
-            is_announcement: is_announcement || false,
-            reply_to_id: reply_to_id || null,
-            reply_to_sender: reply_to_sender || null,
-            reply_to_text: reply_to_text || null
+            is_announcement: is_announcement || false
         };
 
         const { data, error } = await supabase.from('messages').insert([newMessage]).select();
