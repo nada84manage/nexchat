@@ -66,7 +66,7 @@ app.post('/api/login', async (req, res) => {
     }
 });
 
-// マイQRコード取得・更新用API（★ここが足りていなかった部分です）
+// マイQRコード取得・更新用API
 app.post('/api/qr/update', async (req, res) => {
     try {
         const { name, forceRefresh } = req.body;
@@ -137,28 +137,34 @@ app.post('/api/friends/add', async (req, res) => {
     }
 });
 
-// フレンド一覧取得API
+// フレンド一覧取得API（安全な完全版）
 app.get('/api/friends', async (req, res) => {
     try {
         const { name } = req.query;
+        if (!name) return res.json([]);
+
         const { data, error } = await supabase
             .from('friend_requests')
             .select('*')
             .or(`sender.eq.${name},recipient.eq.${name}`);
 
-        if (error) throw error;
+        if (error) {
+            console.error('Supabase Error:', error);
+            return res.json([]);
+        }
         
         const friendNames = new Set();
         if (Array.isArray(data)) {
             data.forEach(row => {
-                if (row.sender === name) friendNames.add(row.recipient);
-                if (row.recipient === name) friendNames.add(row.sender);
+                if (row.sender === name && row.recipient) friendNames.add(row.recipient);
+                if (row.recipient === name && row.sender) friendNames.add(row.sender);
             });
         }
 
         res.json(Array.from(friendNames));
     } catch (err) {
-        res.status(500).json({ success: false, message: 'フレンド一覧の取得に失敗しました。' });
+        console.error('Friends API Error:', err);
+        res.json([]);
     }
 });
 
