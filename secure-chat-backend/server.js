@@ -40,7 +40,6 @@ app.post('/api/signup', async (req, res) => {
         if (error) throw error;
         res.json({ success: true, message: '登録が完了しました！' });
     } catch (err) {
-        console.error('Signup Error:', err);
         res.status(500).json({ success: false, message: 'サーバーエラーが発生しました。' });
     }
 });
@@ -66,40 +65,29 @@ app.post('/api/login', async (req, res) => {
     }
 });
 
-// マイQRコード取得・更新用API（名前またはメールアドレスの両方で検索できるように強化）
+// マイQRコード取得・更新用API
 app.post('/api/qr/update', async (req, res) => {
     try {
-        const { name, email, forceRefresh } = req.body;
-        if (!name && !email) return res.status(400).json({ success: false, message: 'ユーザー名またはメールアドレスが必要です。' });
+        const { name, forceRefresh } = req.body;
+        if (!name) return res.status(400).json({ success: false, message: 'ユーザー名が必要です。' });
 
-        let query = supabase.from('users').select('*');
-        if (name) {
-            query = query.eq('name', name);
-        } else if (email) {
-            query = query.eq('email', email);
-        }
+        const { data: user, error: fetchError } = await supabase.from('users').select('*').eq('name', name).single();
+        if (fetchError || !user) return res.status(400).json({ success: false, message: 'ユーザーが見つかりません。' });
 
-        const { data: users, error: fetchError } = await query;
-        if (fetchError || !users || users.length === 0) {
-            return res.status(400).json({ success: false, message: 'ユーザーが見つかりません。' });
-        }
-
-        const user = users[0];
         let qrSecret = user.qr_secret;
 
         if (forceRefresh || !qrSecret) {
-            qrSecret = `${user.name}_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+            qrSecret = `${name}_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
             const { error: updateError } = await supabase
                 .from('users')
                 .update({ qr_secret: qrSecret })
-                .eq('id', user.id);
+                .eq('name', name);
 
             if (updateError) throw updateError;
         }
 
         res.json({ success: true, qrData: qrSecret });
     } catch (err) {
-        console.error('QR Update Error:', err);
         res.status(500).json({ success: false, message: 'QRコードの処理に失敗しました。' });
     }
 });
@@ -147,7 +135,7 @@ app.post('/api/friends/add', async (req, res) => {
     }
 });
 
-// フレンド一覧取得API（安全な完全版）
+// フレンド一覧取得API
 app.get('/api/friends', async (req, res) => {
     try {
         const { name } = req.query;
@@ -158,10 +146,7 @@ app.get('/api/friends', async (req, res) => {
             .select('*')
             .or(`sender.eq.${name},recipient.eq.${name}`);
 
-        if (error) {
-            console.error('Supabase Error:', error);
-            return res.json([]);
-        }
+        if (error) return res.json([]);
         
         const friendNames = new Set();
         if (Array.isArray(data)) {
@@ -173,7 +158,6 @@ app.get('/api/friends', async (req, res) => {
 
         res.json(Array.from(friendNames));
     } catch (err) {
-        console.error('Friends API Error:', err);
         res.json([]);
     }
 });
