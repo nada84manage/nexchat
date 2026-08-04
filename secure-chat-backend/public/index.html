@@ -270,8 +270,14 @@
         window.addEventListener('DOMContentLoaded', () => {
             const loggedInUser = localStorage.getItem('nexchat_current_session');
             if (loggedInUser) {
-                currentUser = JSON.parse(loggedInUser);
-                showChatScreen();
+                try {
+                    currentUser = JSON.parse(loggedInUser);
+                    if (currentUser && currentUser.name) {
+                        showChatScreen();
+                    }
+                } catch (e) {
+                    console.error("セッション復元エラー", e);
+                }
             }
             window.onclick = () => { document.getElementById('msgMenu').style.display = 'none'; };
             window.addEventListener('contextmenu', (e) => { e.preventDefault(); });
@@ -349,7 +355,6 @@
                 const data = await response.json();
                 if (!response.ok) throw new Error(data.message || 'ログインに失敗しました');
 
-                // ★修正点: サーバーから返る user.name を確実に保持するよう変更
                 currentUser = { name: data.user.name, email: data.user.email || email };
                 localStorage.setItem('nexchat_current_session', JSON.stringify(currentUser));
                 showChatScreen();
@@ -386,21 +391,23 @@
                 keepItem.onclick = () => selectUser(currentUser.name);
                 roomList.appendChild(keepItem);
 
-                friends.forEach(friendName => {
-                    const item = document.createElement('div');
-                    item.className = 'room-item';
-                    if (currentRecipient === friendName) item.classList.add('active');
-                    
-                    item.innerHTML = `
-                        <div class="avatar">${friendName.charAt(0)}</div>
-                        <div>
-                            <div style="font-weight: 600;">${friendName}</div>
-                            <div style="font-size: 0.8rem; color: var(--text-muted);">フレンド</div>
-                        </div>
-                    `;
-                    item.onclick = () => selectUser(friendName);
-                    roomList.appendChild(item);
-                });
+                if (Array.isArray(friends)) {
+                    friends.forEach(friendName => {
+                        const item = document.createElement('div');
+                        item.className = 'room-item';
+                        if (currentRecipient === friendName) item.classList.add('active');
+                        
+                        item.innerHTML = `
+                            <div class="avatar">${friendName.charAt(0)}</div>
+                            <div>
+                                <div style="font-weight: 600;">${friendName}</div>
+                                <div style="font-size: 0.8rem; color: var(--text-muted);">フレンド</div>
+                            </div>
+                        `;
+                        item.onclick = () => selectUser(friendName);
+                        roomList.appendChild(item);
+                    });
+                }
             } catch (e) {
                 console.error('フレンド一覧取得失敗', e);
             }
@@ -692,13 +699,15 @@
                 keepDiv.onclick = () => executeForward(currentUser.name);
                 targetList.appendChild(keepDiv);
 
-                friends.forEach(fName => {
-                    const div = document.createElement('div');
-                    div.style.cssText = 'padding: 10px; cursor: pointer; border-bottom: 1px solid var(--border);';
-                    div.innerText = fName;
-                    div.onclick = () => executeForward(fName);
-                    targetList.appendChild(div);
-                });
+                if (Array.isArray(friends)) {
+                    friends.forEach(fName => {
+                        const div = document.createElement('div');
+                        div.style.cssText = 'padding: 10px; cursor: pointer; border-bottom: 1px solid var(--border);';
+                        div.innerText = fName;
+                        div.onclick = () => executeForward(fName);
+                        targetList.appendChild(div);
+                    });
+                }
 
                 document.getElementById('forwardModal').style.display = 'flex';
             } catch (e) {}
@@ -837,22 +846,21 @@
             loadMessages();
         }
 
-        // マイQRコード表示モーダルを開く
         async function openMyQrModal() {
             document.getElementById('myQrModal').style.display = 'flex';
             await fetchAndRenderQr(false);
         }
 
-        // 「QRコードを更新」ボタンが押されたとき
         async function generateMyQr() {
             await fetchAndRenderQr(true);
         }
 
         async function fetchAndRenderQr(forceRefresh) {
-            // セキュリティ対策: 念のため currentUser.name が無い場合はストレージから再復元
             if (!currentUser || !currentUser.name) {
                 const saved = localStorage.getItem('nexchat_current_session');
-                if (saved) currentUser = JSON.parse(saved);
+                if (saved) {
+                    try { currentUser = JSON.parse(saved); } catch (e) {}
+                }
             }
 
             if (!currentUser || !currentUser.name) {
