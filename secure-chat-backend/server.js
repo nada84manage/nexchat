@@ -40,6 +40,7 @@ app.post('/api/signup', async (req, res) => {
         if (error) throw error;
         res.json({ success: true, message: '登録が完了しました！' });
     } catch (err) {
+        console.error('Signup Error:', err);
         res.status(500).json({ success: false, message: 'サーバーエラーが発生しました。' });
     }
 });
@@ -61,6 +62,7 @@ app.post('/api/login', async (req, res) => {
 
         res.json({ success: true, user: { name: user.name, email: user.email } });
     } catch (err) {
+        console.error('Login Error:', err);
         res.status(500).json({ success: false, message: 'サーバーエラーが発生しました。' });
     }
 });
@@ -88,6 +90,7 @@ app.post('/api/qr/update', async (req, res) => {
 
         res.json({ success: true, qrData: qrSecret });
     } catch (err) {
+        console.error('QR Update Error:', err);
         res.status(500).json({ success: false, message: 'QRコードの処理に失敗しました。' });
     }
 });
